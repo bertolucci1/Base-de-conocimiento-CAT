@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAT Base de conocimiento v2</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* --- VARIABLES GLOBALES --- */
+        :root {
+            --bg-dark: #121822;         /* Fondo principal */
+            --bg-panel: #1a2232;        /* Fondo de tarjetas y sidebar */
+            --bg-panel-light: #232d3f;  /* Hover en tablas */
+            
+            --text-main: #e2e8f0;       /* Texto principal claro */
+            --text-muted: #94a3b8;      /* Texto secundario */
+            --text-cyan: #4ade80;       /* Cian/Teal brillante para acentos */
+            
+            --accent-cyan: #06b6d4;     /* Color neón azulado */
+            --accent-green: #10b981;    /* Color botones de éxito */
+            --accent-red: #ef4444;      /* Color botones eliminar */
+            
+            --border-color: #2e3b4e;
+            --border-glow: rgba(6, 182, 212, 0.4);
+            
+            --font-main: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: var(--font-main);
+        }
+
+        body {
+            display: flex;
+            height: 100vh;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            overflow: hidden; /* Evita scroll global, lo manejamos por zonas */
+        }
+
+        /* --- SIDEBAR --- */
+        .sidebar {
+            width: 280px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .logo-container {
+            margin-bottom: 10px;
+        }
+
+        .logo-text {
+            font-size: 3rem;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5), 0 0 20px var(--accent-cyan);
+            letter-spacing: 2px;
+        }
+
+        .sidebar-header h2 { font-size: 1.1rem; letter-spacing: 1px; color: var(--text-main); }
+        .sidebar-header .subtitle { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px; display: block; }
+        .support-link { font-size: 0.75rem; color: var(--accent-cyan); text-decoration: none; }
+
+        .sidebar-campaign {
+            padding: 20px;
+        }
+        
+        .sidebar-campaign label { font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 5px; }
+
+        .cyber-select {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            outline: none;
+            margin-top: 5px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px;
+        }
+
+        .nav-section h3 {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin: 15px 0 10px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+        }
+
+        .sidebar-nav ul { list-style: none; }
+
+        .sidebar-nav li a {
+            display: block;
+            padding: 10px 15px;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .sidebar-nav li a:hover {
+            background-color: rgba(6, 182, 212, 0.1);
+        }
+
+        .sidebar-nav li.active a {
+            background: linear-gradient(90deg, rgba(6, 182, 212, 0.2) 0%, transparent 100%);
+            border-left: 3px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: inset 10px 0 20px -10px var(--border-glow);
+        }
+
+        .sidebar-footer {
+            padding: 15px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .btn-dark {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: 0.3s;
+        }
+
+        .btn-dark:hover { background-color: var(--bg-panel-light); border-color: var(--accent-cyan); }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .user-profile { display: flex; align-items: center; gap: 10px; padding: 10px; }
+        .avatar { width: 35px; height: 35px; background: var(--bg-dark); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .user-info .role { font-size: 0.8rem; font-weight: bold; color: var(--text-muted); }
+
+        /* --- MAIN CONTENT --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-y: auto;
+        }
+
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 20rem;
+            font-weight: 900;
+            color: rgba(255, 255, 255, 0.02);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            z-index: 1;
+        }
+
+        .breadcrumbs { color: var(--text-muted); font-size: 0.9rem; }
+        .breadcrumbs span { color: var(--accent-cyan); }
+
+        .search-container { position: relative; }
+        .search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--accent-cyan); }
+        .cyber-search {
+            background-color: var(--bg-panel);
+            border: 1px solid rgba(6, 182, 212, 0.5);
+            border-radius: 20px;
+            padding: 10px 15px 10px 40px;
+            color: #fff;
+            width: 300px;
+            outline: none;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.1);
+            transition: 0.3s;
+        }
+        .cyber-search:focus { box-shadow: 0 0 20px rgba(6, 182, 212, 0.4); }
+
+        .content-wrapper {
+            padding: 0 30px 30px 30px;
+            z-index: 1;
+        }
+
+        .page-title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            font-weight: 400;
+            color: var(--text-main);
+        }
+
+        /* --- DASHBOARD CARDS --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .cyber-card {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+
+        .card-info { display: flex; flex-direction: column; }
+        .card-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 5px; }
+        .card-value { font-size: 2rem; font-weight: 600; color: var(--text-main); }
+        .card-icon { font-size: 2rem; color: var(--border-color); }
+
+        /* --- TABLAS --- */
+        .table-container {
+            background-color: var(--bg-panel);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            border: 1px solid var(--border-color);
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-success {
+            background-color: rgba(16, 185, 129, 0.1);
+            color: var(--accent-green);
+            border: 1px solid var(--accent-green);
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .btn-success:hover { background-color: var(--accent-green); color: #fff; }
+
+        .cyber-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .cyber-table th {
+            text-align: left;
+            padding: 12px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 500;
+        }
+
+        .cyber-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(46, 59, 78, 0.5);
+            vertical-align: middle;
+        }
+
+        .cyber-table tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .avatar-small {
+            width: 30px;
+            height: 30px;
+            background-color: var(--bg-dark);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+        }
+
+        /* --- BOTONES MODERNOS (Acciones Principales) --- */
+        .content-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .header-title h1 {
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            font-size: 1.8rem;
+            color: var(--text-main);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-action {
+            padding: 10px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.3); filter: brightness(1.1); }
+        .btn-action:active { transform: translateY(1px); box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        .btn-primary { background: linear-gradient(135deg, #06b6d4, #0284c7); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-success-filled { background: linear-gradient(135deg, #10b981, #059669); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-danger-filled { background: linear-gradient(135deg, #ef4444, #b91c1c); border: 1px solid rgba(255,255,255,0.1); }
+        .btn-secondary { background-color: #334155; color: var(--text-main); border: 1px solid var(--border-color); }
+        .btn-secondary:hover { background-color: #475569; }
+
+        /* --- BOTONES DE ICONO (Tablas) --- */
+        .icon-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-right: 5px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover { background-color: var(--bg-panel-light); color: #fff; border-color: var(--text-muted); }
+        .icon-btn.edit:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); background-color: rgba(6, 182, 212, 0.1); }
+        .icon-btn.delete:hover { border-color: var(--accent-red); color: var(--accent-red); background-color: rgba(239, 68, 68, 0.1); }
+        .icon-btn.folder:hover { border-color: #f59e0b; color: #f59e0b; background-color: rgba(245, 158, 11, 0.1); }
+
+        /* --- Estilos de Contenido (Instructivos) --- */
+        .content-wrapper h1 { font-size: 2rem; margin-bottom: 20px; color: var(--text-main); border-bottom: 2px solid var(--border-color); padding-bottom: 10px; }
+        .content-wrapper h2 { font-size: 1.5rem; margin-top: 30px; margin-bottom: 15px; color: var(--accent-cyan); }
+        .content-wrapper p { line-height: 1.6; margin-bottom: 15px; }
+        .content-wrapper ul, .content-wrapper ol { margin-left: 20px; margin-bottom: 15px; }
+        .content-wrapper img { 
+            max-width: 100%; 
+            height: auto; 
+            border: 1px solid var(--border-color); 
+            border-radius: 4px; 
+            margin: 15px 0; 
+            cursor: zoom-in; /* Icono de lupa */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .content-wrapper img:hover {
+            transform: scale(1.01);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+        }
+
+        /* Estilos del Visor de Imágenes (Lightbox) */
+        .lightbox {
+            display: none; /* Oculto por defecto */
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+        }
+        .lightbox-content {
+            max-width: 95%;
+            max-height: 95%;
+            border: 2px solid var(--accent-color);
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(52, 152, 219, 0.2);
+            animation: zoomIn 0.3s;
+        }
+        @keyframes zoomIn {
+            from {transform:scale(0)} 
+            to {transform:scale(1)}
+        }
+        .close-lightbox {
+            position: absolute;
+            top: 20px;
+            right: 30px;
+            color: #fff;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            z-index: 2001;
+        }
+        .close-lightbox:hover { color: var(--accent-color); }
+
+        .content-wrapper code { background: #2c2c2c; padding: 2px 5px; border-radius: 3px; font-family: monospace; color: var(--accent-cyan); }
+
+        .giant-text-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            width: 100%;
+        }
+
+        .content-wrapper .giant-text {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 300px; /* <--- MODIFICAR ESTE VALOR (ej: 150px, 300px) */
+            line-height: 1;
+            color: #ffffff;
+            font-weight: 900;
+            user-select: none;
+        }
+
+        /* --- Estilos de Edición --- */
+        .editor-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .editor-toolbar {
+            background-color: #333;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+
+        .editor-content {
+            width: 100%;
+            min-height: 300px;
+            background-color: #2c2c2c;
+            color: #fff;
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            border-radius: 0 0 4px 4px;
+            outline: none;
+            overflow-y: auto;
+            line-height: 1.6;
+        }
+
+
+        /* Botones del Toolbar */
+        .toolbar-btn {
+            background-color: #444;
+            border: 1px solid #555;
+            color: #eee;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .toolbar-btn:hover { background-color: #555; }
+
+        .btn-save-file { background-color: #f39c12; color: white; width: 100%; margin-top: 10px; }
+        .btn-admin { background-color: #8e44ad; color: white; width: 100%; margin-bottom: 10px; }
+
+        .placeholder-text { font-style: italic; color: #999; font-size: 0.9rem; padding: 15px; }
+
+        /* --- ESTILOS NUEVOS PARA HOME GRID --- */
+        .campaign-card {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .campaign-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 10px 20px rgba(6, 182, 212, 0.15);
+        }
+        .instr-link {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            color: var(--text-main);
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.2s;
+            font-size: 0.9rem;
+        }
+        .instr-link:hover {
+            background-color: rgba(6, 182, 212, 0.1);
+            color: var(--accent-cyan);
+        }
+        .instr-link i { color: var(--text-muted); font-size: 0.8rem; }
+        .instr-link:hover i { color: var(--accent-cyan); }
+
+        /* --- ESTILOS EDICIÓN EN DASHBOARD (Vista Cliente) --- */
+        .sector-header { display: flex; justify-content: space-between; align-items: center; width: 100%; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); margin-bottom: 10px; }
+        .sector-title { color: var(--accent-cyan); font-size: 1rem; display: flex; align-items: center; gap: 10px; margin: 0; }
+        .sector-actions { display: flex; gap: 5px; opacity: 0.5; transition: opacity 0.2s; }
+        .cyber-card:hover .sector-actions { opacity: 1; }
+        
+        .instr-row { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 5px; border-radius: 6px; transition: background 0.2s; padding-right: 5px; }
+        .instr-row:hover { background-color: rgba(255,255,255,0.03); }
+        .instr-row .instr-link { flex-grow: 1; }
+        
+        .instr-actions { display: flex; gap: 5px; opacity: 0; transition: all 0.2s; transform: translateX(10px); }
+        .instr-row:hover .instr-actions { opacity: 1; transform: translateX(0); }
+
+        .btn-mini { padding: 4px 8px; font-size: 0.7rem; border-radius: 4px; border: none; cursor: pointer; color: white; transition: transform 0.2s; }
+        .btn-mini:hover { transform: scale(1.1); }
+        .btn-mini.edit { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .btn-mini.delete { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+
+        .card-add-sector { 
+            border: 2px dashed var(--border-color); background: transparent; 
+            justify-content: center; align-items: center; cursor: pointer; min-height: 200px; 
+            color: var(--text-muted); font-size: 1.2rem; flex-direction: column; gap: 15px;
+        }
+        .card-add-sector:hover { border-color: var(--accent-cyan); background: rgba(6, 182, 212, 0.05); color: var(--accent-cyan); transform: translateY(-5px); }
+
+        .btn-add-instr { width: 100%; margin-top: 15px; padding: 8px; background: rgba(255,255,255,0.03); border: 1px dashed var(--border-color); color: var(--text-muted); border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .btn-add-instr:hover { background: rgba(6, 182, 212, 0.1); color: var(--accent-cyan); border-color: var(--accent-cyan); }
+
+        /* --- ESTILOS DE BÚSQUEDA --- */
+        .search-results-header { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--border-color); color: var(--text-muted); }
+        
+        .result-card {
+            background-color: var(--bg-panel);
+            border: 1px solid var(--border-color);
+            border-left: 3px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            animation: slideInRight 0.3s ease forwards;
+            opacity: 0;
+        }
+        .result-card:hover {
+            background-color: var(--bg-panel-light);
+            border-left-color: var(--accent-cyan);
+            transform: translateX(5px);
+        }
+
+        .result-path { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; display: flex; gap: 5px; align-items: center;}
+        .result-title { font-size: 1.1rem; color: var(--accent-cyan); font-weight: 600; margin-bottom: 5px; }
+        .result-snippet { font-size: 0.85rem; color: #ccc; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        @keyframes slideInRight {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-container">
+                <h1 class="logo-text">BDC</h1>
+            </div>
+            <h2>Base de conocimiento</h2>
+            <span class="subtitle">Help Desk</span>
+            <a href="mailto:ecostilla@cat-technologies.com" class="support-link">ecostilla@cat-technologies.com</a>
+        </div>
+
+        <div class="sidebar-campaign">
+            <label>Campaña</label>
+            <select id="clientSelect" class="cyber-select">
+                <option value="">-- Campaña --</option>
+            </select>
+        </div>
+
+        <nav id="sectorNav" class="sidebar-nav">
+            <p class="placeholder-text">Selecciona una Campaña para ver los sectores.</p>
+        </nav>
+
+        <!-- Login Form (Visible cuando no hay usuario) -->
+        <div id="loginForm" class="sidebar-campaign" style="border-top: 1px solid var(--border-color); margin-top: auto;">
+            <h4 style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 10px;">Acceso Usuarios</h4>
+            <input type="text" id="usernameInput" placeholder="Usuario" class="cyber-select" style="margin-bottom: 5px;">
+            <input type="password" id="passwordInput" placeholder="Contraseña" class="cyber-select" style="margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; margin-bottom: 15px; gap: 8px;">
+                <input type="checkbox" id="keepSession" style="cursor: pointer; accent-color: var(--accent-cyan);">
+                <label for="keepSession" style="color: var(--text-muted); font-size: 0.85rem; cursor: pointer; user-select: none;">¿Mantener sesión en navegador?</label>
+            </div>
+            <button id="loginBtn" class="btn-success" style="width:100%">Ingresar</button>
+            <p id="loginError" style="color: var(--accent-red); font-size: 0.8rem; margin-top: 5px;"></p>
+        </div>
+
+        <!-- Footer con Acciones (Visible cuando hay usuario) -->
+        <div id="userInfo" class="sidebar-footer" style="display:none;">
+            <div id="adminActions" class="action-buttons">
+                <!-- Botones inyectados por JS -->
+            </div>
+            <div class="action-buttons">
+                <button id="resetDataBtn" class="btn-dark" title="Recargar"><i class="fa-solid fa-rotate-left"></i> Borrar cambios</button>
+                <button id="logoutBtn" class="btn-danger" title="Salir"><i class="fa-solid fa-power-off"></i> Salir</button>
+            </div>
+            <div class="user-profile">
+                <div class="avatar"><i class="fa-solid fa-user"></i></div>
+                <div class="user-info">
+                    <span id="userNameDisplay" class="role" style="display:block; color:white;">USUARIO</span>
+                    <small id="userRoleDisplay" style="color:var(--text-muted); font-size:0.7rem;">Rol</small>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <div class="watermark">CAT</div>
+
+        <header class="top-bar">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <button id="backBtn" class="btn-dark" style="padding: 5px 10px;" title="Atrás"><i class="fa-solid fa-arrow-left"></i></button>
+                <button id="homeBtn" class="btn-dark" style="padding: 5px 10px;" title="Ir al Inicio"><i class="fa-solid fa-house"></i></button>
+                <div id="breadcrumbs" class="breadcrumbs">
+                    Inicio
+                </div>
+            </div>
+            <div class="search-container">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="search" id="searchInput" placeholder="Buscar..." class="cyber-search">
+            </div>
+        </header>
+
+        <section id="contentArea" class="content-wrapper">
+            <!-- Contenido Dinámico -->
+        </section>
+    </main>
+
+    <!-- 
+    ================================================================
+    == BASE DE DATOS INCRUSTADA (NO EDITAR MANUALMENTE ESTE BLOQUE) ==
+    ================================================================
+    -->
+    <script id="app_data" type="application/json">
+    {
+      "users": [
+        {
+          "username": "admin",
+          "password": "123",
+          "role": "admin",
+          "name": "Administrador"
+        },
+        {
+          "username": "editor",
+          "password": "123",
+          "role": "editor",
+          "name": "Editor de Contenido"
+        },
+        {
+          "username": "visor",
+          "password": "123",
+          "role": "viewer",
+          "name": "Empleado Visor"
+        }
+      ],
+      "clients": [
+        {
+          "id": "helpdesk_cat", "name": "Instructivo viejo (Migrado)", "sectors": [ { "id": "teco_ho", "name": "Teco - Home Office", "instructions": [ { "id": "audio_citrix", "title": "Problemas de Audio en Citrix", "content": "<p>Si el operador reporta audio entrecortado o estática:</p><ol><li><strong>Prueba Local:</strong> Revisar conexión del headset (USB/Plug). Usar grabadora de voz de Windows.</li><li><strong>Prueba Internet:</strong> Speedtest (Ping < 30ms). Ping extendido a 8.8.8.8.</li><li><strong>Solución:</strong> Si local e internet están bien, cerrar remoto y <strong>Restablecer Citrix</strong>.</li></ol><p>Comando rápido audio: <code>mmsys.cpl</code></p>" }, { "id": "error_centrify", "title": "Error Centrify / Loop", "content": "<p>Para solucionar errores de enrolamiento:</p><ol><li>Ir a <code>C:\\Users\\%username%\\AppData\\Roaming\\Centrify</code></li><li>Eliminar el archivo <strong>winauth</strong>.</li><li>Realizar nuevamente el enrolamiento.</li></ol><p>Atajo: <code>%appdata%</code></p><p>Ejemplo:</p><img src='img/errorCentrify.PNG' alt='Error Centrify' />" }, { "id": "errores_pic", "title": "Errores de Inicio PIC (3500/Store)", "content": "<p>Si da error al iniciar o queda cargando:</p><ol><li><strong>Restablecer Citrix:</strong> Click derecho en icono Citrix > Preferencias Avanzadas > Restablecer.</li><li><strong>Quitar Respaldo:</strong> En 'Accesos directos y reconexión' > Opciones de reconexión > Destildar la primera opción.</li><li>Finalizar procesos Citrix en Admin de Tareas.</li></ol><img src='img/restablecerCitrix.png' alt='Restablecer' /><img src='img/respaldoPic.png' alt='Respaldo' />" }, { "id": "login_teco", "title": "Datos de Login Correctos", "content": "<p>Formato de usuario: <code>uXXXXXX@proveedor.teco.com.ar</code></p><p>Portal: <code>virtualaccess.telecom.com.ar</code></p>" } ] }, { "id": "apps_vpn", "name": "Aplicativos y VPN", "instructions": [ { "id": "sophos_connect", "title": "Sophos Connect / VPN", "content": "<p><strong>Instalación:</strong> Descargar perfil del User Portal e importar archivo .scx.</p><p><strong>Error 'Servicio no disponible':</strong> Ejecutar CMD como admin:</p><pre>net stop scvpn\nnet start scvpn</pre><img src='img/sophosNoDisponible.PNG' alt='Sophos Fix' />" }, { "id": "microsip_config", "title": "Configuración Microsip", "content": "<p><strong>Cuenta:</strong></p><ul><li>Servidor/Dominio: Evoip correspondiente (ej: evoip1).</li><li>Usuario: ID de usuario.</li><li>Contraseña: 1Usuario*</li></ul><p><strong>Ajustes:</strong> Codec G.729 8kHz. Actualizaciones: Nunca.</p><img src='img/cuentaMicrosip.PNG' alt='Microsip' />" }, { "id": "winauth_setup", "title": "Configuración WinAuth", "content": "<p>1. Copiar código 'Secret' del portal Sophos.</p><p>2. En WinAuth: Add > Authenticator > Pegar código.</p><p>3. Verificar y guardar (destildar protección con contraseña).</p><img src='img/winauth1.jpg' alt='Winauth' />" } ] }, { "id": "onsite_support", "name": "Soporte Onsite", "instructions": [ { "id": "audio_onsite", "title": "Audio Teco Onsite", "content": "<p>Verificar conexiones físicas. Probar audio desde panel de control (<code>mmsys.cpl</code>). Si usa WDE, debe abrirse fuera del remoto (escritorio PC física).</p>" }, { "id": "regedit_fix", "title": "Eliminar Usuario (Regedit)", "content": "<p>Si el perfil está corrupto:</p><ol><li>Borrar carpeta del usuario en <code>C:\\Users</code>.</li><li>Borrar entrada en Regedit: <code>HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\ProfileList</code></li></ol><img src='img/regedit.png' alt='Regedit' />" }, { "id": "ad_reset", "title": "Blanqueo Active Directory", "content": "<p>Pasos para blanqueo en AD:</p><img src='img/AD_1.PNG' alt='AD 1' /><img src='img/AD_2.PNG' alt='AD 2' />" } ] } ] },
+        { "id": "banco_piano", "name": "Banco Piano", "sectors": [] },
+        { "id": "bibank", "name": "BIBank", "sectors": [] },
+        { "id": "galicia", "name": "Galicia", "sectors": [] },
+        { "id": "getnet", "name": "Getnet", "sectors": [] },
+        { "id": "gire", "name": "Gire", "sectors": [] },
+        { "id": "naturgy", "name": "Naturgy", "sectors": [] },
+        { "id": "omint", "name": "Omint", "sectors": [] },
+        { "id": "openpay", "name": "OpenPay", "sectors": [] },
+        { "id": "telecom", "name": "Telecom", "sectors": [] },
+        { "id": "mirgor", "name": "Mirgor", "sectors": [] },
+        { "id": "santander", "name": "Santander", "sectors": [] },
+        { "id": "unicef", "name": "Unicef", "sectors": [] }
+      ]
+    }
+    </script>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- ELEMENTOS DEL DOM ---
+        const clientSelect = document.getElementById('clientSelect');
+        const sectorNav = document.getElementById('sectorNav');
+        const contentArea = document.getElementById('contentArea');
+        const breadcrumbs = document.getElementById('breadcrumbs');
+        const loginForm = document.getElementById('loginForm');
+        const userInfo = document.getElementById('userInfo');
+        const usernameInput = document.getElementById('usernameInput');
+        const passwordInput = document.getElementById('passwordInput');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const loginError = document.getElementById('loginError');
+        const adminActions = document.getElementById('adminActions');
+        const resetDataBtn = document.getElementById('resetDataBtn');
+        const homeBtn = document.getElementById('homeBtn');
+        const backBtn = document.getElementById('backBtn');
+        const searchInput = document.getElementById('searchInput');
+
+        // --- ESTADO DE LA APLICACIÓN ---
+        let db = null;
+        let currentUser = null;
+        const BIN_ID = '69a86c16ae596e708f5f2a53'; // <--- PEGA TU BIN ID AQUÍ
+        const API_KEY = '$2a$10$/73osn6soGhrlceKbNLZ0euWC6tGaF6POATKfFq4z50gzOZhohg1y'; // <--- PEGA TU X-MASTER-KEY AQUÍ
+        let currentClientObj = null;
+        let currentSectorObj = null;
+        let currentInstructionObj = null;
+
+        // --- INICIALIZACIÓN ---
+        function initialize() {
+            setupLightbox();
+            loadFromCloud(); // Volvemos a conectar con la nube para leer los datos reales
+            setupEventListeners();
+        }
+
+        // --- FUNCIONES GLOBALES (Para onclick en HTML generado) ---
+        window.selectCampaign = (clientId) => {
+            const client = db.clients.find(c => c.id === clientId);
+            if (client) {
+                clientSelect.value = clientId;
+                currentClientObj = client;
+                currentSectorObj = null;
+                currentInstructionObj = null;
+                renderSidebarMenu(client);
+                renderWelcome(client.name);
+            }
+        };
+
+        window.openInstruction = (sectorId, instrId) => {
+            if (!currentClientObj) return;
+            const sector = currentClientObj.sectors.find(s => s.id === sectorId);
+            const instr = sector.instructions.find(i => i.id === instrId);
+            if (sector && instr) {
+                // Actualizar activo en sidebar
+                document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+                
+                currentSectorObj = sector;
+                currentInstructionObj = instr;
+                renderInstruction(currentClientObj, sector, instr);
+            }
+        };
+
+        // --- FUNCIONES DE EDICIÓN RÁPIDA (DASHBOARD) ---
+        window.dashAddSector = () => {
+            if (!currentClientObj) return;
+            const id = prompt("ID del nuevo sector (ej: rrhh):");
+            if (!id) return;
+            if (currentClientObj.sectors && currentClientObj.sectors.find(s => s.id === id)) { alert("ID ya existe."); return; }
+            const name = prompt("Nombre del Sector:");
+            if (!name) return;
+            if (!currentClientObj.sectors) currentClientObj.sectors = [];
+            currentClientObj.sectors.push({ id, name, instructions: [] });
+            renderSidebarMenu(currentClientObj);
+            renderWelcome(currentClientObj.name); // Recargar dashboard
+        };
+
+        window.dashEditSector = (sectorId) => {
+            const sector = currentClientObj.sectors.find(s => s.id === sectorId);
+            const newName = prompt("Nuevo nombre del sector:", sector.name);
+            if (newName) {
+                sector.name = newName;
+                renderSidebarMenu(currentClientObj);
+                renderWelcome(currentClientObj.name);
+            }
+        };
+
+        window.dashDeleteSector = (sectorId) => {
+            if (confirm("¿Eliminar sector y todo su contenido?")) {
+                currentClientObj.sectors = currentClientObj.sectors.filter(s => s.id !== sectorId);
+                renderSidebarMenu(currentClientObj);
+                renderWelcome(currentClientObj.name);
+            }
+        };
+
+        window.dashAddInstr = (sectorId) => {
+            const sector = currentClientObj.sectors.find(s => s.id === sectorId);
+            const id = prompt("ID único del instructivo:");
+            if (!id) return;
+            const title = prompt("Título del instructivo:");
+            if (!title) return;
+            if (!sector.instructions) sector.instructions = [];
+            sector.instructions.push({ id, title, content: "<p>Nuevo contenido...</p>" });
+            renderSidebarMenu(currentClientObj);
+            renderWelcome(currentClientObj.name);
+        };
+
+        window.dashEditInstrTitle = (sectorId, instrId) => {
+            const sector = currentClientObj.sectors.find(s => s.id === sectorId);
+            const instr = sector.instructions.find(i => i.id === instrId);
+            const newTitle = prompt("Nuevo título:", instr.title);
+            if(newTitle) { instr.title = newTitle; renderSidebarMenu(currentClientObj); renderWelcome(currentClientObj.name); }
+        };
+
+        window.dashDeleteInstr = (sectorId, instrId) => {
+            const sector = currentClientObj.sectors.find(s => s.id === sectorId);
+            if (confirm("¿Borrar instructivo permanentemente?")) {
+                sector.instructions = sector.instructions.filter(i => i.id !== instrId);
+                renderSidebarMenu(currentClientObj);
+                renderWelcome(currentClientObj.name);
+            }
+        };
+
+        // --- LÓGICA DE BÚSQUEDA ---
+        function performSearch(query) {
+            if (!query) { renderWelcome(null, true); return; }
+            
+            query = query.toLowerCase();
+            const results = [];
+
+            if (db && db.clients) {
+                db.clients.forEach(client => {
+                    if (client.sectors) {
+                        client.sectors.forEach(sector => {
+                            if (sector.instructions) {
+                                sector.instructions.forEach(instr => {
+                                    // Buscar en título, contenido o nombre del sector
+                                    const titleMatch = instr.title.toLowerCase().includes(query);
+                                    const contentMatch = instr.content.toLowerCase().includes(query);
+                                    const sectorMatch = sector.name.toLowerCase().includes(query);
+
+                                    if (titleMatch || contentMatch || sectorMatch) {
+                                        results.push({ client, sector, instr });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            breadcrumbs.textContent = `> Resultados de búsqueda: "${query}"`;
+            contentArea.innerHTML = `<h2 class="search-results-header">Se encontraron ${results.length} coincidencias</h2>`;
+            
+            results.forEach((res, index) => {
+                const card = document.createElement('div');
+                card.className = 'result-card';
+                card.style.animationDelay = `${index * 0.05}s`; // Efecto cascada
+                card.innerHTML = `<div class="result-path"><i class="fa-solid fa-server"></i> ${res.client.name} <i class="fa-solid fa-angle-right"></i> ${res.sector.name}</div><div class="result-title">${res.instr.title}</div><div class="result-snippet">...clic para ver contenido completo...</div>`;
+                card.onclick = () => { selectCampaign(res.client.id); openInstruction(res.sector.id, res.instr.id); };
+                contentArea.appendChild(card);
+            });
+        }
+
+        // --- CARGA DE DATOS LOCALES (Para inicializar estructura nueva) ---
+        function loadLocalData() {
+            try {
+                const jsonText = document.getElementById('app_data').textContent;
+                db = JSON.parse(jsonText);
+                populateClientSelect();
+                renderWelcome(null, true);
+            } catch (e) {
+                console.error("Error parsing local data", e);
+            }
+        }
+
+        // --- CARGA DE DATOS ---
+        async function loadFromCloud() {
+            contentArea.innerHTML = '<p style="padding:20px;">Cargando API, espere...</p>';
+            
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                    headers: {
+                        'X-Master-Key': API_KEY
+                    }
+                });
+
+                if (!response.ok) throw new Error('Error de red al cargar datos');
+                
+                const data = await response.json();
+                db = data.record; // JSONBin devuelve los datos dentro de la propiedad "record"
+                checkSavedSession(); // Verificar si hay sesión guardada
+                populateClientSelect();
+                renderWelcome(null, true);
+            } catch (error) {
+                console.error('Error:', error);
+                contentArea.innerHTML = `<p style="color:red; padding:20px;">Error fatal: No se pudo conectar con la base de datos. Verifique su conexión o las claves API.<br>${error.message}</p>`;
+            }
+        }
+
+        // --- GESTIÓN DE SESIÓN ---
+        function checkSavedSession() {
+            const savedSession = localStorage.getItem('bdc_user_session') || sessionStorage.getItem('bdc_user_session');
+            if (savedSession && db && db.users) {
+                try {
+                    const sessionObj = JSON.parse(savedSession);
+                    // Validamos que el usuario siga existiendo en la DB
+                    const validUser = db.users.find(u => u.username === sessionObj.username && u.password === sessionObj.password);
+                    if (validUser) {
+                        currentUser = validUser;
+                        updateLoginUI();
+                    }
+                } catch (e) {
+                    console.error("Error al restaurar sesión:", e);
+                }
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        function setupEventListeners() {
+            clientSelect.addEventListener('change', (e) => {
+                const clientId = e.target.value;
+                if (!clientId) {
+                    sectorNav.innerHTML = '<p class="placeholder-text">Selecciona una Campaña para ver los sectores.</p>';
+                    renderWelcome(null, true);
+                    return;
+                }
+                const client = db.clients.find(c => c.id === clientId);
+                currentClientObj = client;
+                currentSectorObj = null;
+                currentInstructionObj = null;
+                renderSidebarMenu(client);
+                renderWelcome(client.name);
+            });
+
+            loginBtn.addEventListener('click', handleLogin);
+            logoutBtn.addEventListener('click', handleLogout);
+
+            resetDataBtn.addEventListener('click', () => {
+                if (confirm('¿Estás seguro? Esto recargará la página y perderás cualquier cambio que no hayas guardado en el archivo.')) {
+                    location.reload();
+                }
+            });
+
+            homeBtn.addEventListener('click', () => {
+                clientSelect.value = '';
+                sectorNav.innerHTML = '<p class="placeholder-text">Selecciona una Campaña para ver los sectores.</p>';
+                renderWelcome(null, true);
+                document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+            });
+
+            backBtn.addEventListener('click', () => {
+                if (currentInstructionObj) {
+                    // Estás en un Instructivo -> Volver a la Vista de Campaña
+                    currentInstructionObj = null;
+                    currentSectorObj = null;
+                    document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+                    renderWelcome(currentClientObj.name);
+                } else if (currentClientObj) {
+                    // Estás en una Campaña -> Volver al Inicio (Grid)
+                    clientSelect.value = '';
+                    sectorNav.innerHTML = '<p class="placeholder-text">Selecciona una Campaña para ver los sectores.</p>';
+                    currentClientObj = null;
+                    renderWelcome(null, true);
+                }
+            });
+
+            searchInput.addEventListener('input', (e) => {
+                const query = e.target.value.trim();
+                if (query.length === 0) renderWelcome(null, true);
+                else if (query.length > 2) performSearch(query);
+            });
+        }
+
+        // --- RENDERIZADO DE UI ---
+        function populateClientSelect() {
+            if (!db || !db.clients) return;
+            clientSelect.innerHTML = '<option value="">-- Campaña --</option>'; // Limpiar
+            db.clients.forEach(client => {
+                const option = document.createElement('option');
+                option.value = client.id;
+                option.textContent = client.name;
+                clientSelect.appendChild(option);
+            });
+        }
+
+        function renderSidebarMenu(client) {
+            sectorNav.innerHTML = '';
+            if (!client.sectors || client.sectors.length === 0) {
+                sectorNav.innerHTML = '<p class="placeholder-text">No hay instructivos para este cliente.</p>';
+                return;
+            }
+            client.sectors.forEach(sector => {
+                const section = document.createElement('div');
+                section.className = 'nav-section';
+                
+                const h3 = document.createElement('h3');
+                h3.innerHTML = `<i class="fa-solid fa-folder"></i> ${sector.name}`;
+                section.appendChild(h3);
+
+                const ul = document.createElement('ul');
+                sector.instructions.forEach(instruction => {
+                    const li = document.createElement('li');
+                    const a = document.createElement('a');
+                    a.textContent = instruction.title;
+                    a.onclick = () => {
+                        document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+                        li.classList.add('active');
+                        currentSectorObj = sector;
+                        currentInstructionObj = instruction;
+                        renderInstruction(client, sector, instruction);
+                    };
+                    li.appendChild(a);
+                    ul.appendChild(li);
+                });
+                section.appendChild(ul);
+                sectorNav.appendChild(section);
+            });
+        }
+
+        function renderInstruction(client, sector, instruction) {
+            breadcrumbs.textContent = `> ${client.name} > ${sector.name} > ${instruction.title}`;
+            contentArea.innerHTML = `
+                <div class="content-header">
+                    <div class="header-title">
+                        <h1>${instruction.title}</h1>
+                        <small style="color: #888; display: block; margin-top: 5px;">ID Documento: ${instruction.id}</small>
+                    </div>
+                    <div id="topActions" class="header-actions"></div>
+                </div>
+                <div class="instruction-body">${instruction.content}</div>`;
+
+            if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'editor')) {
+                const editBtn = document.createElement('button');
+                editBtn.innerHTML = '<i class="fa-solid fa-pen-to-square"></i> Editar Instructivo';
+                editBtn.className = "btn-action btn-primary";
+                editBtn.onclick = () => enableEditing(instruction);
+                document.getElementById('topActions').appendChild(editBtn);
+            }
+            contentArea.querySelectorAll('img').forEach(img => {
+                img.addEventListener('click', () => {
+                    const lightbox = document.querySelector('.lightbox');
+                    const lightboxImg = document.getElementById('lightboxImg');
+                    lightbox.style.display = "flex";
+                    lightboxImg.src = img.src;
+                });
+            });
+        }
+
+        function renderWelcome(clientName = null, showHomeGrid = false) {
+            breadcrumbs.textContent = 'Inicio';
+            
+            if (showHomeGrid) {
+                // MODO GRID (INICIO)
+                let html = `
+                    <div class="giant-text-container" style="height: auto; margin-bottom: 40px; margin-top: 40px;">
+                        <h1 class="giant-text" style="font-size: 6rem;">BDC HELP DESK</h1>
+                    </div>
+                    <h2 class="page-title" style="text-align: center; margin-bottom: 40px;">Seleccione una Campaña</h2>
+                    <div class="dashboard-grid">
+                `;
+                
+                if (db && db.clients) {
+                    db.clients.forEach(client => {
+                        const sectorCount = client.sectors ? client.sectors.length : 0;
+                        let instrCount = 0;
+                        if(client.sectors) {
+                            client.sectors.forEach(s => {
+                                if(s.instructions) instrCount += s.instructions.length;
+                            });
+                        }
+
+                        html += `
+                            <div class="cyber-card campaign-card" onclick="selectCampaign('${client.id}')">
+                                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                                    <div style="background: rgba(6, 182, 212, 0.1); width: 50px; height: 50px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fa-solid fa-server" style="font-size: 1.5rem; color: var(--accent-cyan);"></i>
+                                    </div>
+                                    <span style="background: var(--bg-dark); color: var(--text-muted); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; border: 1px solid var(--border-color);">${client.id}</span>
+                                </div>
+                                <div class="card-info" style="width: 100%;">
+                                    <span class="card-value" style="font-size: 1.2rem; margin-bottom: 5px;">${client.name}</span>
+                                    <span class="card-label">${sectorCount} Sectores • ${instrCount} Instructivos</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                
+                html += `</div>`;
+                contentArea.innerHTML = html;
+                return;
+            }
+
+            if (clientName) {
+                // MODO VISTA CAMPAÑA (LISTADO)
+                breadcrumbs.textContent = `> ${clientName}`;
+                let html = `
+                    <div class="content-header">
+                        <div class="header-title">
+                            <h1>${clientName}</h1>
+                            <small style="color: var(--text-muted);">Vista general de instructivos</small>
+                        </div>
+                    </div>
+                    <div class="dashboard-grid" style="grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));">
+                `;
+                
+                if (currentClientObj && currentClientObj.sectors) {
+                     const isEditor = currentUser && (currentUser.role === 'admin' || currentUser.role === 'editor');
+
+                     currentClientObj.sectors.forEach(sector => {
+                         html += `
+                            <div class="cyber-card" style="flex-direction: column; align-items: flex-start; gap: 0; padding: 0; overflow: hidden; height: fit-content;">
+                                <div style="background: var(--bg-panel-light); width: 100%; padding: 15px; border-bottom: 1px solid var(--border-color);">
+                                    <div class="sector-header" style="border:none; padding:0; margin:0;">
+                                        <h3 class="sector-title"><i class="fa-solid fa-folder"></i> ${sector.name}</h3>
+                                        ${isEditor ? `
+                                        <div class="sector-actions">
+                                            <button class="btn-mini edit" onclick="dashEditSector('${sector.id}')" title="Renombrar Sector"><i class="fa-solid fa-pen"></i></button>
+                                            <button class="btn-mini delete" onclick="dashDeleteSector('${sector.id}')" title="Eliminar Sector"><i class="fa-solid fa-trash"></i></button>
+                                        </div>` : ''}
+                                    </div>
+                                </div>
+                                <div style="width: 100%; padding: 10px;">
+                                    <ul style="list-style: none;">
+                         `;
+                         
+                         if(sector.instructions && sector.instructions.length > 0) {
+                             sector.instructions.forEach(instr => {
+                                 html += `
+                                    <li class="instr-row">
+                                        <a href="#" onclick="openInstruction('${sector.id}', '${instr.id}'); return false;" class="instr-link">
+                                            <i class="fa-solid fa-file-lines"></i>
+                                            ${instr.title}
+                                        </a>
+                                        ${isEditor ? `
+                                        <div class="instr-actions">
+                                            <button class="btn-mini edit" onclick="dashEditInstrTitle('${sector.id}', '${instr.id}')" title="Renombrar"><i class="fa-solid fa-pen"></i></button>
+                                            <button class="btn-mini delete" onclick="dashDeleteInstr('${sector.id}', '${instr.id}')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                                        </div>` : ''}
+                                    </li>
+                                 `;
+                             });
+                         } else {
+                             html += `<li style="padding: 10px; color: var(--text-muted); font-style: italic; font-size: 0.9rem;">Sin instructivos</li>`;
+                         }
+
+                         if (isEditor) {
+                             html += `<button class="btn-add-instr" onclick="dashAddInstr('${sector.id}')"><i class="fa-solid fa-plus"></i> Agregar Instructivo</button>`;
+                         }
+                         
+                         html += `</ul></div></div>`;
+                     });
+
+                     // Botón "Agregar Sector" al final
+                     if (isEditor) {
+                        html += `
+                            <div class="cyber-card card-add-sector" onclick="dashAddSector()">
+                                <i class="fa-solid fa-circle-plus" style="font-size: 3rem;"></i>
+                                <span>Crear Nuevo Sector</span>
+                            </div>
+                        `;
+                     }
+                }
+                
+                html += `</div>`;
+                contentArea.innerHTML = html;
+            }
+        }
+
+        // --- LÓGICA DE EDICIÓN ---
+        function enableEditing(instruction) {
+            contentArea.innerHTML = `
+                <div class="content-header">
+                    <div class="header-title"><h1>Editando Instructivo</h1></div>
+                    <div class="header-actions">
+                        <button id="saveBtn" class="btn-action btn-success-filled"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                        <button id="cancelBtn" class="btn-action btn-danger-filled"><i class="fa-solid fa-xmark"></i> Cancelar</button>
+                    </div>
+                </div>
+                <div class="editor-container">
+                    <label style="display:block; margin-bottom: 5px; color: #aaa;">Título del Instructivo:</label>
+                    <input type="text" id="titleInput" value="${instruction.title}" style="width: 100%; padding: 10px; margin-bottom: 20px; background: #2c2c2c; color: white; border: 1px solid var(--border-color); border-radius: 4px; font-size: 1.1rem;">
+                    <p>Contenido (Editor Visual):</p>
+                    <div class="editor-toolbar" id="toolbar">
+                        <button type="button" class="toolbar-btn" data-cmd="bold" title="Negrita"><b>B</b></button>
+                        <button type="button" class="toolbar-btn" data-cmd="italic" title="Cursiva"><i>I</i></button>
+                        <button type="button" class="toolbar-btn" data-cmd="underline" title="Subrayado"><u>U</u></button>
+                        <button type="button" class="toolbar-btn" data-cmd="insertUnorderedList" title="Lista con viñetas">• Lista</button>
+                        <button type="button" class="toolbar-btn" data-cmd="insertOrderedList" title="Lista numerada">1. Lista</button>
+                        <button type="button" class="toolbar-btn" data-cmd="formatBlock" data-val="h3" title="Subtítulo">Título</button>
+                        <button type="button" class="toolbar-btn" data-cmd="formatBlock" data-val="p" title="Párrafo Normal">Texto</button>
+                        <button type="button" class="toolbar-btn" id="imgBtn" title="Insertar Imagen"><i class="fa-solid fa-image"></i></button>
+                    </div>
+                    <input type="file" id="imgInput" accept="image/*" style="display:none">
+                    <div id="editorInput" class="editor-content" contenteditable="true">${instruction.content}</div>
+                </div>`;
+
+            // Lógica para insertar imagen (Base64)
+            const imgBtn = document.getElementById('imgBtn');
+            const imgInput = document.getElementById('imgInput');
+            
+            imgBtn.onclick = () => imgInput.click();
+            
+            imgInput.onchange = () => {
+                if (imgInput.files && imgInput.files[0]) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        document.getElementById('editorInput').focus();
+                        document.execCommand('insertImage', false, e.target.result);
+                    };
+                    reader.readAsDataURL(imgInput.files[0]);
+                }
+            };
+
+            document.getElementById('toolbar').addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn || !btn.dataset.cmd) return;
+                document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
+            });
+
+            document.getElementById('saveBtn').onclick = () => {
+                const newTitle = document.getElementById('titleInput').value;
+                const newContent = document.getElementById('editorInput').innerHTML;
+                instruction.title = newTitle;
+                instruction.content = newContent;
+                alert("Cambios aplicados. Recuerda guardar en la nube.");
+                renderSidebarMenu(currentClientObj);
+                const buttons = document.querySelectorAll('.sector-nav button');
+                buttons.forEach(btn => { if (btn.textContent === newTitle) btn.classList.add('active'); });
+                renderInstruction(currentClientObj, currentSectorObj, instruction);
+            };
+
+            document.getElementById('cancelBtn').onclick = () => {
+                renderInstruction(currentClientObj, currentSectorObj, instruction);
+            };
+        }
+
+        // --- SISTEMA DE LOGIN Y SESIÓN ---
+        function handleLogin() {
+            const user = usernameInput.value;
+            const pass = passwordInput.value;
+            const keepSession = document.getElementById('keepSession').checked;
+
+            if (!db || !db.users) {
+                loginError.textContent = "Error: No se cargaron usuarios.";
+                return;
+            }
+            const foundUser = db.users.find(u => u.username === user && u.password === pass);
+            if (foundUser) {
+                currentUser = foundUser;
+                loginError.textContent = "";
+                usernameInput.value = "";
+                passwordInput.value = "";
+                
+                // Guardar sesión según preferencia
+                const sessionData = JSON.stringify(foundUser);
+                if (keepSession) {
+                    localStorage.setItem('bdc_user_session', sessionData); // Persistente
+                } else {
+                    sessionStorage.setItem('bdc_user_session', sessionData); // Solo pestaña actual
+                }
+
+                updateLoginUI();
+            } else {
+                loginError.textContent = "Usuario o contraseña incorrectos.";
+            }
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem('bdc_user_session');
+            sessionStorage.removeItem('bdc_user_session');
+            updateLoginUI();
+            if (currentInstructionObj) {
+                renderInstruction(currentClientObj, currentSectorObj, currentInstructionObj);
+            }
+        }
+
+        function updateLoginUI() {
+            adminActions.innerHTML = '';
+            adminActions.style.display = 'none';
+
+            if (currentUser) {
+                loginForm.style.display = 'none';
+                userInfo.style.display = 'flex';
+                userInfo.style.flexDirection = 'column';
+                document.getElementById('userNameDisplay').textContent = currentUser.name;
+                document.getElementById('userRoleDisplay').textContent = currentUser.role;
+
+                if (currentUser.role === 'admin' || currentUser.role === 'editor') {
+                    adminActions.style.display = 'flex';
+                    const adminBtn = document.createElement('button');
+                    adminBtn.innerHTML = '<i class="fa-solid fa-gauge"></i> Panel de administración';
+                    adminBtn.className = "btn-dark";
+                    adminBtn.onclick = renderAdminPanel;
+                    adminActions.appendChild(adminBtn);
+
+                    const saveBtn = document.createElement('button');
+                    saveBtn.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Guardar';
+                    saveBtn.className = "btn-dark btn-save-file";
+                    saveBtn.onclick = saveToCloud;
+                    adminActions.appendChild(saveBtn);
+                }
+                if (currentInstructionObj) {
+                    renderInstruction(currentClientObj, currentSectorObj, currentInstructionObj);
+                }
+            } else {
+                loginForm.style.display = 'block';
+                userInfo.style.display = 'none';
+            }
+        }
+        
+        // --- PANEL DE ADMINISTRACIÓN ---
+        function renderAdminPanel() {
+            breadcrumbs.textContent = '> Panel de Administración';
+            
+            // Calcular estadísticas
+            const totalUsers = db.users.length;
+            const totalClients = db.clients.length;
+            let totalSectors = 0;
+            let totalInstr = 0;
+            db.clients.forEach(c => {
+                if(c.sectors) {
+                    totalSectors += c.sectors.length;
+                    c.sectors.forEach(s => {
+                        if(s.instructions) totalInstr += s.instructions.length;
+                    });
+                }
+            });
+
+            let html = `
+                <h2 class="page-title">Panel de Administración Central</h2>
+                <div class="dashboard-grid">
+                    <div class="cyber-card"><div class="card-info"><span class="card-label">Usuarios:</span><span class="card-value">${totalUsers}</span></div><i class="fa-solid fa-user-group card-icon"></i></div>
+                    <div class="cyber-card"><div class="card-info"><span class="card-label">Campañas:</span><span class="card-value">${totalClients}</span></div><i class="fa-solid fa-ticket card-icon"></i></div>
+                    <div class="cyber-card"><div class="card-info"><span class="card-label">Sectores:</span><span class="card-value">${totalSectors}</span></div><i class="fa-solid fa-border-all card-icon"></i></div>
+                    <div class="cyber-card"><div class="card-info"><span class="card-label">Instructivos:</span><span class="card-value">${totalInstr}</span></div><i class="fa-solid fa-clipboard-list card-icon"></i></div>
+                </div>
+            `;
+
+            // Sección Usuarios (Solo Admin)
+            if (currentUser.role === 'admin') {
+                html += `
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Gestión de Usuarios</h3>
+                        <button id="addUserBtn" class="btn-success">Añadir Usuario</button>
+                    </div>
+                    <table id="usersTable" class="cyber-table">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Nombre Completo</th>
+                                <th>Rol</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                `;
+            }
+
+            // Sección Campañas (Admin y Editor)
+            html += `
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Gestión de Campañas</h3>
+                        <button id="addClientBtn" class="btn-success">Nueva Campaña</button>
+                    </div>
+                    <table id="clientsTable" class="cyber-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nombre</th>
+                                <th>Sectores</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>`;
+
+            contentArea.innerHTML = html;
+            
+            // Lógica Usuarios
+            if (currentUser.role === 'admin') {
+                const usersTbody = document.querySelector('#usersTable tbody');
+                db.users.forEach(user => {
+                    const row = usersTbody.insertRow();
+                    row.innerHTML = `
+                        <td>${user.username}</td>
+                        <td>${user.name}</td>
+                        <td>${user.role}</td>
+                        <td class="action-cell">
+                            <button class="icon-btn edit btn-edit-user" data-username="${user.username}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                            <button class="icon-btn delete btn-delete-user" data-username="${user.username}" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                });
+                document.getElementById('addUserBtn').onclick = addUser;
+                document.querySelectorAll('.btn-edit-user').forEach(btn => btn.onclick = (e) => editUser(e.target.dataset.username));
+                document.querySelectorAll('.btn-delete-user').forEach(btn => btn.onclick = (e) => deleteUser(e.target.dataset.username));
+            }
+
+            // Lógica Campañas
+            const clientsTbody = document.querySelector('#clientsTable tbody');
+            db.clients.forEach(client => {
+                const row = clientsTbody.insertRow();
+                const sectorCount = client.sectors ? client.sectors.length : 0;
+                row.innerHTML = `
+                    <td>${client.id}</td>
+                    <td>${client.name}</td>
+                    <td>${sectorCount}</td>
+                    <td class="action-cell">
+                        <button class="icon-btn edit btn-edit-client" data-id="${client.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                        <button class="icon-btn folder btn-sectors-client" data-id="${client.id}" title="Sectores"><i class="fa-solid fa-folder-open"></i></button>
+                        <button class="icon-btn delete btn-delete-client" data-id="${client.id}" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                `;
+            });
+
+            document.getElementById('addClientBtn').onclick = addClient;
+            document.querySelectorAll('.btn-edit-client').forEach(btn => btn.onclick = (e) => editClient(e.target.closest('button').dataset.id));
+            document.querySelectorAll('.btn-sectors-client').forEach(btn => btn.onclick = (e) => manageSectors(e.target.closest('button').dataset.id));
+            document.querySelectorAll('.btn-delete-client').forEach(btn => btn.onclick = (e) => deleteClient(e.target.closest('button').dataset.id));
+        }
+
+        function addUser() {
+            const username = prompt("Nuevo nombre de usuario:");
+            if (!username || db.users.find(u => u.username === username)) {
+                alert("Nombre de usuario inválido o ya existente.");
+                return;
+            }
+            const name = prompt("Nombre completo:");
+            const password = prompt("Contraseña:");
+            const role = prompt("Rol (admin, editor, viewer):");
+            if (!['admin', 'editor', 'viewer'].includes(role)) {
+                alert("Rol inválido.");
+                return;
+            }
+            db.users.push({ username, password, role, name });
+            alert("Usuario añadido. Recuerda guardar el archivo para que los cambios sean permanentes.");
+            renderAdminPanel();
+        }
+
+        function editUser(username) {
+            const user = db.users.find(u => u.username === username);
+            if (!user) return;
+            
+            user.name = prompt("Nuevo nombre completo:", user.name) || user.name;
+            const newPass = prompt("Nueva contraseña (dejar en blanco para no cambiar):");
+            if (newPass) user.password = newPass;
+            user.role = prompt("Nuevo rol (admin, editor, viewer):", user.role) || user.role;
+
+            alert("Usuario actualizado. Recuerda guardar el archivo para que los cambios sean permanentes.");
+            renderAdminPanel();
+        }
+
+        function deleteUser(username) {
+            if (username === 'admin') {
+                alert("No se puede eliminar al usuario 'admin' principal.");
+                return;
+            }
+            if (confirm(`¿Seguro que quieres eliminar al usuario '${username}'?`)) {
+                db.users = db.users.filter(u => u.username !== username);
+                alert("Usuario eliminado. Recuerda guardar el archivo para que los cambios sean permanentes.");
+                renderAdminPanel();
+            }
+        }
+
+        // --- GESTIÓN DE CAMPAÑAS ---
+        function addClient() {
+            const id = prompt("ID único de la campaña (ej: cliente_c):");
+            if (!id) return;
+            if (db.clients.find(c => c.id === id)) { alert("Ese ID ya existe."); return; }
+            
+            const name = prompt("Nombre de la Campaña:");
+            if (!name) return;
+
+            db.clients.push({ id, name, sectors: [] });
+            populateClientSelect(); // Actualizar selector lateral
+            renderAdminPanel();
+        }
+
+        function editClient(id) {
+            const client = db.clients.find(c => c.id === id);
+            if (!client) return;
+            const newName = prompt("Nuevo nombre de la campaña:", client.name);
+            if (newName) {
+                client.name = newName;
+                populateClientSelect();
+                renderAdminPanel();
+            }
+        }
+
+        function deleteClient(id) {
+            if (confirm(`¿Eliminar la campaña y todos sus instructivos?`)) {
+                db.clients = db.clients.filter(c => c.id !== id);
+                populateClientSelect();
+                renderAdminPanel();
+            }
+        }
+
+        // --- GESTIÓN DE SECTORES ---
+        function manageSectors(clientId) {
+            const client = db.clients.find(c => c.id === clientId);
+            if (!client) return;
+
+            breadcrumbs.textContent = `> Panel de Administración > Sectores de ${client.name}`;
+            contentArea.innerHTML = `
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Gestión de Sectores: ${client.name}</h3>
+                        <button id="backToAdminBtn" class="btn-action btn-secondary" style="margin-right:10px;"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                        <button id="addSectorBtn" class="btn-action btn-success-filled"><i class="fa-solid fa-plus"></i> Nuevo Sector</button>
+                    </div>
+                    <table id="sectorsTable" class="cyber-table">
+                        <thead><tr><th>ID</th><th>Nombre</th><th>Instructivos</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+
+            const tbody = document.querySelector('#sectorsTable tbody');
+            if (client.sectors) {
+                client.sectors.forEach(sector => {
+                    const row = tbody.insertRow();
+                    const instrCount = sector.instructions ? sector.instructions.length : 0;
+                    row.innerHTML = `
+                        <td>${sector.id}</td>
+                        <td>${sector.name}</td>
+                        <td>${instrCount}</td>
+                        <td class="action-cell">
+                            <button class="icon-btn edit btn-edit-sector" data-id="${sector.id}" title="Editar"><i class="fa-solid fa-pen"></i></button>
+                            <button class="icon-btn folder btn-instr-sector" data-id="${sector.id}" title="Instructivos"><i class="fa-solid fa-file-lines"></i></button>
+                            <button class="icon-btn delete btn-delete-sector" data-id="${sector.id}" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                });
+            }
+
+            document.getElementById('backToAdminBtn').onclick = renderAdminPanel;
+            document.getElementById('addSectorBtn').onclick = () => addSector(client);
+            document.querySelectorAll('.btn-edit-sector').forEach(btn => btn.onclick = (e) => editSector(client, e.target.closest('button').dataset.id));
+            document.querySelectorAll('.btn-instr-sector').forEach(btn => btn.onclick = (e) => manageInstructions(client, e.target.closest('button').dataset.id));
+            document.querySelectorAll('.btn-delete-sector').forEach(btn => btn.onclick = (e) => deleteSector(client, e.target.closest('button').dataset.id));
+        }
+
+        function addSector(client) {
+            const id = prompt("ID del sector (ej: rrhh):");
+            if (!id) return;
+            if (client.sectors && client.sectors.find(s => s.id === id)) { alert("ID ya existe en esta campaña."); return; }
+            
+            const name = prompt("Nombre del Sector:");
+            if (!name) return;
+
+            if (!client.sectors) client.sectors = [];
+            client.sectors.push({ id, name, instructions: [] });
+            renderSidebarMenu(client); // Actualizar sidebar si es el cliente actual
+            manageSectors(client.id);
+        }
+
+        function editSector(client, sectorId) {
+            const sector = client.sectors.find(s => s.id === sectorId);
+            const newName = prompt("Nuevo nombre del sector:", sector.name);
+            if (newName) {
+                sector.name = newName;
+                renderSidebarMenu(client);
+                manageSectors(client.id);
+            }
+        }
+
+        function deleteSector(client, sectorId) {
+            if (confirm("¿Eliminar sector y sus instructivos?")) {
+                client.sectors = client.sectors.filter(s => s.id !== sectorId);
+                renderSidebarMenu(client);
+                manageSectors(client.id);
+            }
+        }
+
+        // --- GESTIÓN DE INSTRUCTIVOS ---
+        function manageInstructions(client, sectorId) {
+            const sector = client.sectors.find(s => s.id === sectorId);
+            if (!sector) return;
+
+            breadcrumbs.textContent = `> Panel de Administración > ${client.name} > ${sector.name} > Instructivos`;
+            contentArea.innerHTML = `
+                <div class="table-container">
+                    <div class="table-header">
+                        <h3>Gestión de Instructivos: ${sector.name}</h3>
+                        <button id="backToSectorsBtn" class="btn-action btn-secondary" style="margin-right:10px;"><i class="fa-solid fa-arrow-left"></i> Volver</button>
+                        <button id="addInstrBtn" class="btn-action btn-success-filled"><i class="fa-solid fa-plus"></i> Nuevo Instructivo</button>
+                    </div>
+                    <table id="instrTable" class="cyber-table">
+                        <thead><tr><th>ID</th><th>Título</th><th>Acciones</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            `;
+
+            const tbody = document.querySelector('#instrTable tbody');
+            if (sector.instructions) {
+                sector.instructions.forEach(instr => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${instr.id}</td>
+                        <td>${instr.title}</td>
+                        <td class="action-cell">
+                            <button class="icon-btn edit btn-edit-meta" data-id="${instr.id}" title="Renombrar"><i class="fa-solid fa-pen"></i></button>
+                            <button class="icon-btn folder btn-edit-content" data-id="${instr.id}" title="Editar Contenido"><i class="fa-solid fa-file-pen"></i></button>
+                            <button class="icon-btn delete btn-delete-instr" data-id="${instr.id}" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    `;
+                });
+            }
+
+            document.getElementById('backToSectorsBtn').onclick = () => manageSectors(client.id);
+            document.getElementById('addInstrBtn').onclick = () => addInstruction(client, sector);
+            
+            document.querySelectorAll('.btn-edit-meta').forEach(btn => btn.onclick = (e) => editInstructionMetadata(client, sector, e.target.closest('button').dataset.id));
+            document.querySelectorAll('.btn-edit-content').forEach(btn => btn.onclick = (e) => {
+                const instr = sector.instructions.find(i => i.id === e.target.closest('button').dataset.id);
+                currentClientObj = client;
+                currentSectorObj = sector;
+                currentInstructionObj = instr;
+                renderSidebarMenu(client);
+                enableEditing(instr);
+            });
+            document.querySelectorAll('.btn-delete-instr').forEach(btn => btn.onclick = (e) => deleteInstruction(client, sector, e.target.closest('button').dataset.id));
+        }
+
+        function addInstruction(client, sector) {
+            const id = prompt("ID del instructivo (ej: paso_a_paso):");
+            if (!id) return;
+            if (sector.instructions && sector.instructions.find(i => i.id === id)) { alert("ID ya existe."); return; }
+            
+            const title = prompt("Título del Instructivo:");
+            if (!title) return;
+
+            if (!sector.instructions) sector.instructions = [];
+            sector.instructions.push({ id, title, content: "<p>Contenido nuevo...</p>" });
+            renderSidebarMenu(client);
+            manageInstructions(client, sector.id);
+        }
+
+        function editInstructionMetadata(client, sector, instrId) {
+            const instr = sector.instructions.find(i => i.id === instrId);
+            const newTitle = prompt("Nuevo título:", instr.title);
+            if (newTitle) {
+                instr.title = newTitle;
+                renderSidebarMenu(client);
+                manageInstructions(client, sector.id);
+            }
+        }
+
+        function deleteInstruction(client, sector, instrId) {
+            if (confirm("¿Eliminar este instructivo permanentemente?")) {
+                sector.instructions = sector.instructions.filter(i => i.id !== instrId);
+                renderSidebarMenu(client);
+                manageInstructions(client, sector.id);
+            }
+        }
+
+        // --- UTILIDADES ---
+        function setupLightbox() {
+            const lightbox = document.createElement('div');
+            lightbox.className = 'lightbox';
+            lightbox.innerHTML = '<span class="close-lightbox">&times;</span><img class="lightbox-content" id="lightboxImg">';
+            document.body.appendChild(lightbox);
+            const lightboxImg = document.getElementById('lightboxImg');
+            const closeBtn = lightbox.querySelector('.close-lightbox');
+            closeBtn.onclick = () => lightbox.style.display = "none";
+            lightbox.onclick = (e) => { if (e.target !== lightboxImg) lightbox.style.display = "none"; };
+        }
+
+        async function saveToCloud() {
+            const btn = document.querySelector('.btn-save-file');
+            const originalText = btn.textContent;
+            btn.textContent = "Guardando...";
+            btn.disabled = true;
+
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify(db)
+                });
+
+                if (response.ok) {
+                    alert("¡Base de datos actualizada en la nube correctamente!");
+                } else {
+                    throw new Error("Error al guardar");
+                }
+            } catch (error) {
+                console.error(error);
+                alert("Error al guardar en la nube. Revisa la consola.");
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // --- Iniciar la aplicación ---
+        initialize();
+    });
+    </script>
+</body>
+</html>
