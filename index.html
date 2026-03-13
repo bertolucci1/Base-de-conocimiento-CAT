@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CAT Base de conocimiento v2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
     <style>
         /* --- VARIABLES GLOBALES --- */
         :root {
@@ -605,6 +606,92 @@
             to { opacity: 1; transform: translateX(0); }
         }
 
+        /* --- ESTILOS DEL MAPA INTERACTIVO (PLANOS) --- */
+        .map-controls { display: flex; gap: 15px; margin-bottom: 20px; background: var(--bg-panel); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 0 15px rgba(6, 182, 212, 0.05); flex-wrap: wrap; align-items: center; }
+        .map-controls label { color: var(--text-muted); font-size: 0.85rem; }
+        .map-table-container { overflow: auto; max-height: 65vh; background: var(--bg-panel); padding: 20px; border-radius: 12px; border: 1px solid var(--border-color); box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        
+        /* --- ESTILO PLANOS SIMPLE --- */
+        .map-table { border-collapse: collapse; margin: 0 auto; background-color: #fff; user-select: none; } 
+        
+        /* Encabezados estilo Excel básico y limpio */
+        .map-table th {
+            background-color: #f0f0f0; color: #444; border: 1px solid #ccc;
+            font-weight: normal; text-align: center; min-width: 30px; height: 20px;
+            font-size: 10px; padding: 0; cursor: pointer;
+        }
+        .map-table th:hover { background-color: #e0e0e0; }
+
+        .map-table td { 
+            min-width: 40px; height: 25px; padding: 0; font-size: 11px; color: #000;
+            box-sizing: border-box; border: 1px solid #e0e0e0; text-align: center;
+        }
+        
+        /* --- CLASES PARA DIBUJAR (Editor) --- */
+        .map-table td.cell-selected { border: 2px solid var(--accent-cyan) !important; box-shadow: inset 0 0 0 2px rgba(6, 182, 212, 0.2); background-color: rgba(6, 182, 212, 0.1); z-index: 50; }
+        .map-table td.b-top { border-top: 2px solid #000 !important; }
+        .map-table td.b-bottom { border-bottom: 2px solid #000 !important; }
+        .map-table td.b-left { border-left: 2px solid #000 !important; }
+        .map-table td.b-right { border-right: 2px solid #000 !important; }
+        
+        /* Celdas con datos (PCs/Escritorios): Cajas visibles */
+        .map-table td.filled { 
+            background-color: #3b82f6; color: white; 
+            font-weight: bold; font-size: 11px; text-align: center; vertical-align: middle; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .map-table td.filled:hover { background-color: #2563eb; transform: scale(1.1); z-index: 10; }
+        
+        .map-pc-resaltada { background-color: var(--accent-red) !important; color: white !important; transform: scale(1.2) !important; border-color: var(--accent-red) !important; z-index: 20; position: relative; animation: pulseRed 1.5s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        .file-input-wrapper { position: relative; overflow: hidden; display: inline-block; }
+        .file-input-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+
+        /* --- MODERN OFFICE TOOLBAR --- */
+        .office-toolbar {
+            display: flex;
+            gap: 5px;
+            background-color: #1e293b;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 15px;
+            align-items: stretch;
+            overflow-x: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        .toolbar-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 0 12px;
+            border-right: 1px solid rgba(255,255,255,0.1);
+            gap: 5px;
+        }
+        .toolbar-section:last-child { border-right: none; }
+
+        .section-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            user-select: none;
+        }
+
+        .tools-row { display: flex; gap: 4px; }
+
+        .office-btn {
+            min-width: 32px; height: 32px;
+            border: 1px solid transparent; background: transparent; color: #e2e8f0;
+            border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; transition: all 0.2s;
+        }
+        .office-btn:hover { background-color: rgba(255,255,255,0.1); color: #fff; }
+        .office-btn:active { transform: translateY(1px); }
+        .office-btn.accent { color: var(--accent-cyan); }
+        .office-btn.danger { color: var(--accent-red); }
+
     </style>
 </head>
 <body>
@@ -624,6 +711,9 @@
             <select id="clientSelect" class="cyber-select">
                 <option value="">-- Campaña --</option>
             </select>
+            <button id="btnMapas" class="btn-action btn-secondary" style="width: 100%; margin-top: 15px; background: rgba(6, 182, 212, 0.1); border-color: var(--accent-cyan); color: var(--accent-cyan);">
+    <i class="fa-solid fa-map-location-dot"></i> Planos Interactivos
+</button>
         </div>
 
         <nav id="sectorNav" class="sidebar-nav">
@@ -749,6 +839,7 @@
         const homeBtn = document.getElementById('homeBtn');
         const backBtn = document.getElementById('backBtn');
         const searchInput = document.getElementById('searchInput');
+        const btnMapas = document.getElementById('btnMapas');
 
         // --- ESTADO DE LA APLICACIÓN ---
         let db = null;
@@ -758,6 +849,9 @@
         let currentClientObj = null;
         let currentSectorObj = null;
         let currentInstructionObj = null;
+        let mapaWorkbook = null; // Objeto Workbook de ExcelJS
+        let selectedMapCell = null; // Última celda seleccionada (foco)
+        const selectedMapCells = new Set(); // Conjunto de celdas seleccionadas
 
         // --- INICIALIZACIÓN ---
         function initialize() {
@@ -1001,6 +1095,98 @@
                 const query = e.target.value.trim();
                 if (query.length === 0) renderWelcome(null, true);
                 else if (query.length > 2) performSearch(query);
+            });
+
+            // --- EVENTO DE MAPAS (PLANOS) ---
+            btnMapas.addEventListener('click', () => {
+                document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+                clientSelect.value = ""; 
+                currentClientObj = null;
+                
+                breadcrumbs.textContent = '> Planos Interactivos';
+                
+                contentArea.innerHTML = `
+                    <div class="content-header">
+                        <div class="header-title">
+                            <h1><i class="fa-solid fa-map-location-dot"></i> Editor de Planos</h1>
+                            <small style="color: var(--text-muted);">Sube un Excel base o edita el plano manualmente seleccionando las celdas.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="map-controls">
+                        <div class="file-input-wrapper">
+                            <button class="btn-action btn-secondary"><i class="fa-solid fa-file-excel" style="color:#10b981;"></i> Cargar Excel Base</button>
+                            <input type="file" id="mapFileInput" accept=".xlsx, .xls, .csv">
+                        </div>
+                        
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <label>Piso:</label>
+                            <select id="mapSheetSelect" class="cyber-select" style="width: 200px; padding: 8px;" disabled>
+                                <option>Cargue un archivo</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:10px; margin-left: auto;">
+                            <label>Buscar PC:</label>
+                            <div class="search-container" style="margin:0;">
+                                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                                <input type="text" id="mapSearchInput" placeholder="Ej: 1241..." class="cyber-search" style="width: 200px; padding: 8px 15px 8px 35px;">
+                            </div>
+                            <button id="btnBuscarMap" class="btn-action btn-primary">Buscar</button>
+                        </div>
+                    </div>
+                    <!-- MODERN RIBBON TOOLBAR -->
+                    <div class="office-toolbar">
+                        <div class="toolbar-section">
+                            <div class="tools-row">
+                                <button class="office-btn" onclick="mapStructure('addRow')" title="Insertar Fila Abajo"><i class="fa-solid fa-arrow-down"></i><span style="font-size:0.6rem; margin-left:2px;">+F</span></button>
+                                <button class="office-btn danger" onclick="mapStructure('delRow')" title="Eliminar Fila Actual"><i class="fa-solid fa-xmark"></i><span style="font-size:0.6rem; margin-left:2px;">-F</span></button>
+                                <button class="office-btn" onclick="mapStructure('addCol')" title="Insertar Columna Derecha"><i class="fa-solid fa-arrow-right"></i><span style="font-size:0.6rem; margin-left:2px;">+C</span></button>
+                                <button class="office-btn danger" onclick="mapStructure('delCol')" title="Eliminar Columna Actual"><i class="fa-solid fa-xmark"></i><span style="font-size:0.6rem; margin-left:2px;">-C</span></button>
+                            </div>
+                            <span class="section-label">Estructura</span>
+                        </div>
+
+                        <div class="toolbar-section">
+                            <div class="tools-row">
+                                <button class="office-btn" onclick="applyMapStyle('b-top')" title="Borde Superior"><i class="fa-solid fa-border-top-left"></i></button>
+                                <button class="office-btn" onclick="applyMapStyle('b-bottom')" title="Borde Inferior"><i class="fa-solid fa-border-none" style="transform: rotate(180deg);"></i></button>
+                                <button class="office-btn" onclick="applyMapStyle('b-left')" title="Borde Izquierdo"><i class="fa-solid fa-border-style"></i></button>
+                                <button class="office-btn" onclick="applyMapStyle('b-right')" title="Borde Derecho"><i class="fa-solid fa-border-style" style="transform: scaleX(-1);"></i></button>
+                            </div>
+                            <span class="section-label">Paredes / Estructura</span>
+                        </div>
+                        <div class="toolbar-section">
+                            <div class="tools-row">
+                                <button class="office-btn accent" onclick="applyMapStyle('filled')" title="Asignar Escritorio (Azul)"><i class="fa-solid fa-desktop"></i></button>
+                                <button class="office-btn" onclick="applyMapStyle('clear')" title="Borrar Formato (Pasillo)"><i class="fa-solid fa-eraser"></i></button>
+                            </div>
+                            <span class="section-label">Mobiliario</span>
+                        </div>
+                        <div class="toolbar-section">
+                            <div class="tools-row">
+                                <button class="office-btn" onclick="editMapText()" title="Editar Texto (Doble Clic)"><i class="fa-solid fa-i-cursor"></i></button>
+                                <button class="office-btn danger" onclick="applyMapStyle('delete-text')" title="Borrar Solo Texto"><i class="fa-solid fa-delete-left"></i></button>
+                            </div>
+                            <span class="section-label">Datos</span>
+                        </div>
+                        <div class="toolbar-section" style="margin-left: auto; border:none; flex-direction: row;">
+                            <small style="color:#666; font-size:0.7rem; margin-right: 10px;"><i>Tip: Doble clic en celda para editar</i></small>
+                        </div>
+                    </div>
+
+                    <div id="mapTableContainer" class="map-table-container">
+                        <div class="giant-text-container" style="color: rgba(255,255,255,0.02); font-size: 1rem; flex-direction: column;">
+                            <i class="fa-solid fa-map" style="font-size: 10rem; margin-bottom: 20px;"></i>
+                            <p>El plano se dibujará aquí</p>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('mapFileInput').addEventListener('change', handleMapFileUpload);
+                document.getElementById('mapSheetSelect').addEventListener('change', (e) => drawMap(e.target.value));
+                document.getElementById('btnBuscarMap').addEventListener('click', searchInMap);
+                document.getElementById('mapSearchInput').addEventListener('keypress', (e) => { if(e.key === 'Enter') searchInMap(); });
             });
         }
 
@@ -1734,6 +1920,358 @@
             } finally {
                 btn.textContent = originalText;
                 btn.disabled = false;
+            }
+        }
+
+        // --- FUNCIONES DE MAPAS (HOISTED) ---
+        function handleMapFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async function(event) {
+                const data = new Uint8Array(event.target.result);
+                
+                // Usamos ExcelJS en lugar de SheetJS
+                const workbook = new ExcelJS.Workbook();
+                await workbook.xlsx.load(data.buffer);
+                mapaWorkbook = workbook;
+                
+                const selector = document.getElementById('mapSheetSelect');
+                selector.innerHTML = '';
+                selector.disabled = false;
+                
+                mapaWorkbook.eachSheet((worksheet, sheetId) => {
+                    let option = document.createElement('option');
+                    option.text = worksheet.name;
+                    option.value = worksheet.name;
+                    selector.add(option);
+                });
+
+                // Dibujar la primera hoja
+                const firstSheet = mapaWorkbook.worksheets[0];
+                if (firstSheet) drawMap(firstSheet.name);
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function drawMap(sheetName) {
+            if (!mapaWorkbook) return;
+            const worksheet = mapaWorkbook.getWorksheet(sheetName);
+            
+            let html = '<table class="map-table">';
+            
+            // Obtener dimensiones reales
+            // Aseguramos un mínimo de cuadrícula si está vacío
+            const rowCount = Math.max(worksheet.rowCount, 20);
+            const colCount = Math.max(worksheet.columnCount, 15);
+
+            // --- HEADER DE COLUMNAS (A, B, C...) ---
+            html += '<thead><tr><th></th>'; // Esquina vacía
+            for(let c = 1; c <= colCount; c++) {
+                html += `<th onclick="selectMapColumn(this, event)">${toColumnName(c)}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+
+            // Iterar filas
+            for(let r = 1; r <= rowCount; r++) {
+                const row = worksheet.getRow(r);
+                html += '<tr>';
+                
+                // --- HEADER DE FILA (1, 2, 3...) ---
+                html += `<th onclick="selectMapRow(this, event)">${r}</th>`;
+                
+                // Iterar columnas
+                for(let c = 1; c <= colCount; c++) {
+                    const cell = row.getCell(c);
+                    
+                    // Obtener valor
+                    let val = cell.value ? cell.value.toString() : '';
+                    if (typeof cell.value === 'object' && cell.value !== null) {
+                        // A veces el valor es un objeto con fórmula o rich text
+                        val = cell.value.result || cell.value.richText?.map(t=>t.text).join('') || '';
+                    }
+
+                    // --- INTERPRETAR ESTILOS DE EXCEL ---
+                    let styleStr = '';
+                    
+                    // 1. Bordes (Arriba, Abajo, Izq, Der)
+                    if (cell.border) {
+                        if (cell.border.top) styleStr += `border-top: ${getBorderStyle(cell.border.top)}; `;
+                        if (cell.border.bottom) styleStr += `border-bottom: ${getBorderStyle(cell.border.bottom)}; `;
+                        if (cell.border.left) styleStr += `border-left: ${getBorderStyle(cell.border.left)}; `;
+                        if (cell.border.right) styleStr += `border-right: ${getBorderStyle(cell.border.right)}; `;
+                    }
+
+                    // 2. Fondo (Fill)
+                    if (cell.fill && cell.fill.type === 'pattern' && cell.fill.fgColor) {
+                        let color = getExcelColor(cell.fill.fgColor);
+                        if (color) styleStr += `background-color: ${color}; `;
+                    }
+
+                    // 3. Fuente (Font)
+                    if (cell.font) {
+                        if (cell.font.bold) styleStr += 'font-weight: bold; ';
+                        if (cell.font.color) { let c = getExcelColor(cell.font.color); if(c) styleStr += `color: ${c}; `; }
+                        if (cell.font.size) styleStr += `font-size: ${cell.font.size}pt; `;
+                    }
+
+                    // Renderizar celda con estilos inline
+                    html += `<td style="${styleStr}" onclick="selectMapCell(this, event)" ondblclick="editMapText(this)">${val}</td>`;
+                }
+                html += '</tr>';
+            }
+            html += '</tbody></table>';
+            
+            document.getElementById('mapTableContainer').innerHTML = html;
+        }
+
+        // Helper para convertir número a letra Excel (1->A, 27->AA)
+        function toColumnName(num) {
+            let ret = '', a = 1, b = 26;
+            while ((num -= a) >= 0) {
+                ret = String.fromCharCode(parseInt((num % b) / a) + 65) + ret;
+                a = b;
+                b *= 26;
+            }
+            return ret;
+        }
+
+        // Helpers para convertir estilos de Excel a CSS
+        function getBorderStyle(borderObj) {
+            // Excel styles: thin, medium, thick, dotted, etc.
+            const width = borderObj.style === 'thick' ? '2px' : (borderObj.style === 'medium' ? '2px' : '1px');
+            let color = '#000';
+            if (borderObj.color) { const c = getExcelColor(borderObj.color); if(c) color = c; }
+            return `${width} solid ${color}`;
+        }
+
+        function getExcelColor(colorObj) {
+            if (!colorObj) return null;
+            if (colorObj.argb) {
+                // ARGB (Alpha Red Green Blue) -> CSS Hex. Ignoramos Alpha para simplificar o lo convertimos.
+                return '#' + colorObj.argb.substring(2); 
+            }
+            return null;
+        }
+
+        // --- FUNCIONES DEL EDITOR DE PLANOS ---
+        window.selectMapColumn = (th, event) => {
+            // Gestión de selección múltiple (Ctrl / Cmd)
+            if (!event.ctrlKey && !event.metaKey) {
+                selectedMapCells.forEach(c => c.classList.remove('cell-selected'));
+                selectedMapCells.clear();
+            }
+            
+            const table = document.querySelector('.map-table');
+            const colIndex = th.cellIndex;
+            const rows = table.tBodies[0].rows;
+            
+            for(let i=0; i < rows.length; i++) {
+                const cell = rows[i].cells[colIndex];
+                if(cell) {
+                    cell.classList.add('cell-selected');
+                    selectedMapCells.add(cell);
+                    if(i === 0 && !event.ctrlKey) selectedMapCell = cell; // Focus en la primera
+                }
+            }
+        }
+
+        window.selectMapRow = (th, event) => {
+            if (!event.ctrlKey && !event.metaKey) {
+                selectedMapCells.forEach(c => c.classList.remove('cell-selected'));
+                selectedMapCells.clear();
+            }
+            
+            const tr = th.parentElement;
+            for(let i=1; i < tr.cells.length; i++) {
+                const cell = tr.cells[i];
+                cell.classList.add('cell-selected');
+                selectedMapCells.add(cell);
+                if(i === 1 && !event.ctrlKey) selectedMapCell = cell;
+            }
+        }
+
+        window.selectMapCell = (td, event) => {
+            // Evitar seleccionar encabezados (TH)
+            if (td.tagName !== 'TD') return;
+
+            // Gestión de selección múltiple (Ctrl / Cmd)
+            if (!event.ctrlKey && !event.metaKey) {
+                selectedMapCells.forEach(c => c.classList.remove('cell-selected'));
+                selectedMapCells.clear();
+            }
+
+            if (selectedMapCells.has(td)) {
+                td.classList.remove('cell-selected');
+                selectedMapCells.delete(td);
+                if (selectedMapCell === td) selectedMapCell = null;
+            } else {
+                td.classList.add('cell-selected');
+                selectedMapCells.add(td);
+                selectedMapCell = td;
+            }
+        }
+
+        window.mapStructure = (action) => {
+            if (!selectedMapCell) { alert("Selecciona una celda de referencia primero."); return; }
+            const table = document.querySelector('.map-table');
+            const currentRow = selectedMapCell.closest('tr');
+            const cellIndex = selectedMapCell.cellIndex; // Ojo: index incluye el TH
+
+            if (action === 'addRow') {
+                const newRow = currentRow.cloneNode(true);
+                Array.from(newRow.children).forEach(td => {
+                    td.innerText = '';
+                    td.style.backgroundColor = '';
+                    td.className = '';
+                    td.classList.remove('cell-selected');
+                    td.onclick = (e) => selectMapCell(td, e);
+                    td.ondblclick = () => editMapText(td);
+                });
+                currentRow.after(newRow);
+                reindexTable();
+            } 
+            else if (action === 'delRow') {
+                // Validar que no borre la única fila (tbody children)
+                if(table.tBodies[0].rows.length > 1) currentRow.remove();
+                selectedMapCell = null;
+                selectedMapCells.clear();
+                reindexTable();
+            }
+            else if (action === 'addCol') {
+                Array.from(table.rows).forEach(row => {
+                    const isHeader = row.parentElement.tagName === 'THEAD';
+                    const refCell = row.cells[cellIndex];
+                    const newCell = refCell.cloneNode(true);
+                    newCell.innerText = '';
+                    
+                    if (!isHeader) {
+                        newCell.style.backgroundColor = '';
+                        newCell.className = '';
+                        newCell.classList.remove('cell-selected');
+                        newCell.onclick = (e) => selectMapCell(newCell, e);
+                        newCell.ondblclick = () => editMapText(newCell);
+                    }
+                    refCell.after(newCell);
+                });
+                reindexTable();
+            }
+            else if (action === 'delCol') {
+                // No borrar la columna de números (index 0)
+                if (cellIndex === 0) return;
+                
+                const rows = Array.from(table.rows); // Incluye thead y tbody
+                if (rows[0].cells.length > 2) { // Mínimo 1 col de datos + 1 header
+                    rows.forEach(row => row.deleteCell(cellIndex));
+                }
+                selectedMapCell = null;
+                selectedMapCells.clear();
+                reindexTable();
+            }
+        }
+
+        // Re-calcular letras y números después de editar estructura
+        function reindexTable() {
+            const table = document.querySelector('.map-table');
+            if (!table) return;
+
+            // 1. Reindexar Columnas (THEAD)
+            const headerRow = table.tHead.rows[0];
+            for (let c = 1; c < headerRow.cells.length; c++) {
+                headerRow.cells[c].innerText = toColumnName(c);
+            }
+
+            // 2. Reindexar Filas (TBODY)
+            const bodyRows = table.tBodies[0].rows;
+            for (let r = 0; r < bodyRows.length; r++) {
+                // La primera celda es el TH con el número
+                bodyRows[r].cells[0].innerText = (r + 1).toString();
+            }
+        }
+
+        window.applyMapStyle = (style) => {
+            if (selectedMapCells.size === 0) { alert("Selecciona celdas para aplicar estilo."); return; }
+            
+            selectedMapCells.forEach(cell => {
+                if (style === 'clear') {
+                    cell.className = 'cell-selected'; // Mantener selección
+                    cell.innerText = '';
+                    cell.style.cssText = ''; // Limpiar estilos inline de Excel
+                } else if (style === 'filled') {
+                    cell.classList.toggle('filled');
+                } else if (style === 'delete-text') {
+                    cell.innerText = '';
+                } else {
+                    cell.classList.toggle(style);
+                }
+            });
+        }
+
+        window.editMapText = (td) => {
+            const target = td || selectedMapCell;
+            if (!target) return;
+            
+            target.contentEditable = true;
+            target.focus();
+            
+            const finish = () => {
+                target.contentEditable = false;
+                target.onblur = null;
+                target.onkeydown = null;
+            };
+            
+            target.onblur = finish;
+            target.onkeydown = (e) => { if(e.key === 'Enter') { e.preventDefault(); target.blur(); } };
+        }
+
+        function searchInMap() {
+            const query = document.getElementById('mapSearchInput').value.trim().toLowerCase();
+            if (!query) return;
+            if (!mapaWorkbook) { alert("Carga un archivo primero."); return; }
+
+            document.querySelectorAll('.map-pc-resaltada').forEach(td => td.classList.remove('map-pc-resaltada'));
+
+            let foundSheet = null;
+
+            // Buscar en todas las hojas con ExcelJS
+            mapaWorkbook.eachSheet((ws) => {
+                if (foundSheet) return;
+                ws.eachRow((row) => {
+                    row.eachCell((cell) => {
+                        // Convertir valor a string de forma segura (puede ser objeto rich text)
+                        let val = '';
+                        if (cell.value && typeof cell.value === 'object' && cell.value.result) val = cell.value.result.toString();
+                        else if (cell.value) val = cell.value.toString();
+                        
+                        if (val.toLowerCase().includes(query)) {
+                            foundSheet = ws.name;
+                        }
+                    });
+                });
+            });
+
+            if (foundSheet) {
+                // Si la encontramos, cambiamos y redibujamos
+                const selector = document.getElementById('mapSheetSelect');
+                if (selector.value !== foundSheet) {
+                    selector.value = foundSheet;
+                    drawMap(foundSheet); // Dibuja el mapa donde está la PC
+                }
+
+                // Buscar visualmente
+                let domFound = false;
+                document.querySelectorAll('.map-table td').forEach(td => {
+                    if (td.innerText.toLowerCase().includes(query) && td.innerText.trim() !== "") {
+                        td.classList.add('map-pc-resaltada');
+                        td.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+                        domFound = true;
+                    }
+                });
+                
+                if (!domFound) alert(`Se encontró en la hoja "${foundSheet}" pero no se pudo visualizar.`);
+            } else {
+                alert("No se encontró: " + query + " en ninguna hoja del archivo.");
             }
         }
 
