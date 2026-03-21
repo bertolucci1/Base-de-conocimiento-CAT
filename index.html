@@ -769,10 +769,13 @@
 
         <div class="sidebar-campaign">
             <button id="btnCampanas" class="btn-action btn-secondary" style="width: 100%; margin-bottom: 10px; background: rgba(16, 185, 129, 0.1); border-color: var(--accent-green); color: var(--accent-green);">
-                <i class="fa-solid fa-server"></i> Campañas
+                <i class="fa-solid fa-server"></i> Instructivos por Cliente
             </button>
             <button id="btnMapas" class="btn-action btn-secondary" style="width: 100%; background: rgba(6, 182, 212, 0.1); border-color: var(--accent-cyan); color: var(--accent-cyan);">
                 <i class="fa-solid fa-map-location-dot"></i> Planos Interactivos
+            </button>
+            <button id="btnADSearch" class="btn-action btn-secondary" style="width: 100%; background: rgba(139, 92, 246, 0.1); border-color: #8b5cf6; color: #8b5cf6; margin-top: 10px;">
+                <i class="fa-solid fa-users-viewfinder"></i> Usuarios AD
             </button>
         </div>
 
@@ -828,7 +831,6 @@
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
                     <input type="search" id="searchInput" placeholder="Buscar..." class="cyber-search">
                 </div>
-                <button id="btnConsultarAD" class="btn-action btn-secondary" style="border-radius: 20px; padding: 10px 20px; border-color: var(--accent-cyan); color: var(--accent-cyan); background: var(--bg-panel);" title="Consultar en AD"><i class="fa-solid fa-address-card"></i> Consultar AD</button>
             </div>
         </header>
 
@@ -905,7 +907,7 @@
         const searchInput = document.getElementById('searchInput');
         const btnMapas = document.getElementById('btnMapas');
         const btnCampanas = document.getElementById('btnCampanas');
-        const btnConsultarAD = document.getElementById('btnConsultarAD');
+        const btnADSearch = document.getElementById('btnADSearch');
 
         // --- ESTADO DE LA APLICACIÓN ---
         let db = null;
@@ -1050,12 +1052,14 @@
 
         // --- AD BRIDGE FUNCIONALIDAD ---
         window.consultarAD = async (username) => {
+            const container = document.getElementById('adResultContainer');
+            if (!container) return; // Si no está en el menú de AD, abortar
+
             if (!username) {
                 showToast("Ingresa un usuario en el buscador para consultar AD.", "warning");
                 return;
             }
-            contentArea.innerHTML = `<div style="padding:20px; color: var(--accent-cyan); font-size:1.2rem;"><i class="fa-solid fa-spinner fa-spin"></i> Conectando al Servidor AD Bridge para "${username}"...</div>`;
-            breadcrumbs.textContent = `> Búsqueda en Active Directory > ${username}`;
+            container.innerHTML = `<div style="padding:40px; text-align:center; color: #8b5cf6; font-size:1.2rem;"><i class="fa-solid fa-spinner fa-spin fa-2x" style="margin-bottom:15px; display:block;"></i> Contactando al puente AD para "${username}"...</div>`;
             
             try {
                 const response = await fetch(`${AD_BRIDGE_URL}/api/ad/user/${username}`);
@@ -1066,7 +1070,7 @@
                 renderADResult(data);
             } catch (error) {
                 console.error(error);
-                contentArea.innerHTML = `
+                container.innerHTML = `
                     <div style="padding: 20px; color: var(--accent-red); margin-bottom: 15px; border: 1px dashed var(--accent-red); border-radius: 8px; background: rgba(239, 68, 68, 0.05);">
                         <h3 style="margin-bottom:10px;"><i class="fa-solid fa-triangle-exclamation"></i> Error al consultar AD</h3>
                         <p>${error.message}</p>
@@ -1075,25 +1079,175 @@
             }
         };
 
-        window.renderADResult = (data) => {
-            let itemsHtml = '';
-            for (const [key, value] of Object.entries(data)) {
-                if (key !== 'Username' && value) {
-                    itemsHtml += `<div class="equipos-card-item"><span class="equipos-card-label">${key}</span><span class="equipos-card-value">${value}</span></div>`;
+        window.copyToClipboard = (text) => {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Copiado al portapapeles", "success");
+            }).catch(err => {
+                console.error("Error al copiar:", err);
+                showToast("Error al copiar texto", "error");
+            });
+        };
+
+        window.searchMapFromAD = (pcName) => {
+            // 1. Simular el clic en el botón de Mapas para cambiar de pantalla
+            const btnMapas = document.getElementById('btnMapas');
+            if (btnMapas) btnMapas.click();
+            
+            // 2. Dar un leve retraso para que el DOM de mapas termine de renderizarse
+            setTimeout(() => {
+                const mapSearchInput = document.getElementById('mapSearchInput');
+                const btnBuscarMap = document.getElementById('btnBuscarMap');
+                
+                if (mapSearchInput && btnBuscarMap) {
+                    let query = pcName;
+
+                    // 3. Traducir la Workstation a BOX usando la base de datos de Equipos
+                    if (baseEquipos && baseEquipos.length > 0) {
+                        const cleanPC = pcName.trim().toLowerCase();
+                        const numericPC = cleanPC.replace(/\D/g, ''); // Extrae solo los números (ej: 9011)
+
+                        const foundEq = baseEquipos.find(eq => {
+                            const wsVal = eq['WS'] ? String(eq['WS']).trim().toLowerCase() : '';
+                            const numWsVal = wsVal.replace(/\D/g, '');
+                            // Coincidencia exacta o coincidencia numérica (ej: WS9011 -> 9011)
+                            return (wsVal === cleanPC) || (numericPC !== '' && numericPC === numWsVal);
+                        });
+
+                        if (foundEq && foundEq['BOX']) {
+                            query = foundEq['BOX']; // Usamos la BOX para buscar en la BD y resaltar el plano
+                            showToast(`WS ${pcName.toUpperCase()} vinculada a la BOX ${query}`, "success");
+                        } else {
+                            showToast(`La WS ${pcName.toUpperCase()} no se encontró en el Inventario.`, "warning");
+                        }
+                    } else {
+                        showToast(`Carga el archivo de Inventario DB para ubicar la WS automáticamente.`, "info");
+                    }
+
+                    // Colocamos el valor (sea la WS o la BOX encontrada) y ejecutamos la búsqueda
+                    mapSearchInput.value = query;
+                    btnBuscarMap.click();
                 }
+            }, 150);
+        };
+
+        window.renderADResult = (data) => {
+            const container = document.getElementById('adResultContainer');
+            if (!container) return;
+
+            let itemsHtml = '<div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">';
+            let logCardHtml = '';
+
+            // --- SISTEMA DE NOTIFICACIONES MODERNAS (DIAGNÓSTICO) ---
+            if (data.AD_Diagnostic && Array.isArray(data.AD_Diagnostic)) {
+                data.AD_Diagnostic.forEach(msg => {
+                    let type = 'info';
+                    if (msg.includes('Éxito')) type = 'success';
+                    else if (msg.includes('Error') || msg.includes('Fallo')) type = 'error';
+                    else if (msg.includes('Aviso')) type = 'warning';
+                    
+                    // Disparamos tu ventana flotante nativa
+                    showToast(`AD Bridge: ${msg}`, type);
+                });
             }
 
-            contentArea.innerHTML = `
-                <div class="content-header">
-                    <div class="header-title">
-                        <h1 style="color: var(--accent-cyan);"><i class="fa-solid fa-address-card"></i> Información de Active Directory</h1>
-                        <small style="color: var(--text-muted);">Consultado en tiempo real vía AD Bridge</small>
+            for (const [key, value] of Object.entries(data)) {
+                // Omitimos variables de control interno y parseamos solo datos reales
+                if (key !== 'Username' && key !== 'LastAction' && key !== 'LastPC' && key !== 'LastDate' && key !== 'RawLog' && key !== 'AD_Diagnostic' && !key.includes('[DEBUG]') && value) {
+                    const safeValue = String(value).replace(/'/g, "\\'").replace(/"/g, "&quot;");
+                    itemsHtml += `
+                        <div style="display: flex; flex-direction: column; background: rgba(0,0,0,0.2); padding: 12px 15px; border-radius: 8px; border-left: 3px solid #8b5cf6; transition: background 0.2s ease;" onmouseover="this.style.backgroundColor='rgba(139, 92, 246, 0.05)'" onmouseout="this.style.backgroundColor='rgba(0,0,0,0.2)'">
+                            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 5px;">${key}</span>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+                                <span style="font-size: 1.05rem; color: var(--text-main); word-break: break-word;">${value}</span>
+                                <button onclick="copyToClipboard('${safeValue}')" class="icon-btn" style="border: 1px solid var(--border-color); background: var(--bg-panel); color: #8b5cf6; width: 32px; height: 32px; flex-shrink: 0; margin: 0;" title="Copiar valor"><i class="fa-regular fa-copy"></i></button>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            itemsHtml += '</div>';
+
+            if (data.LastAction && data.LastPC) {
+                const isLogon = data.LastAction === 'LOGON';
+                const actionColor = isLogon ? 'var(--accent-green)' : 'var(--accent-red)';
+                const iconClass = isLogon ? 'fa-arrow-right-to-bracket' : 'fa-arrow-right-from-bracket';
+                
+                const exactFormatText = data.RawLog || data['Notas AD (Directo)'];
+
+                logCardHtml = `
+                    <div class="equipos-card" style="background: var(--bg-panel); flex-direction: column; border-left-color: ${actionColor}; margin-top: 0; margin-bottom: 20px;">
+                        <div style="width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <div>
+                                <h3 style="color: ${actionColor}; margin:0; font-size: 1.3rem;"><i class="fa-solid fa-clock-rotate-left"></i> Último Log Detectado</h3>
+                                <div style="color: var(--text-muted); font-size: 1.05rem; margin-top: 8px; font-family: monospace; padding: 6px 12px; background: rgba(0,0,0,0.3); border-radius: 4px; border: 1px dashed ${actionColor}; display: inline-block;"><i class="fa-solid fa-quote-left" style="opacity:0.5; margin-right:5px;"></i>${exactFormatText}</div>
+                            </div>
+                            <span style="background: rgba(255,255,255,0.05); border: 1px solid ${actionColor}; padding: 6px 12px; border-radius: 6px; color: ${actionColor}; font-weight: bold; font-size: 1rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid ${iconClass}"></i> ${data.LastAction}
+                            </span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; background: rgba(0,0,0,0.2); padding: 12px 15px; border-radius: 8px; border-left: 3px solid #8b5cf6;">
+                            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; letter-spacing: 0.5px; margin-bottom: 10px;">Equipo Registrado (Haz clic para ubicar en el plano)</span>
+                            <div style="display: flex; align-items: center; gap: 15px;">
+                                <button onclick="searchMapFromAD('${data.LastPC}')" class="btn-action" style="background: rgba(139, 92, 246, 0.1); border: 1px solid #8b5cf6; color: #8b5cf6; padding: 10px 20px; font-size: 1.1rem;" title="Ubicar BOX en Plano">
+                                    <i class="fa-solid fa-desktop"></i> Ubicar ${data.LastPC} <i class="fa-solid fa-magnifying-glass-location" style="margin-left: 5px;"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
+                `;
+            } else if (data['Notas AD (Directo)']) {
+                // FALLBACK DE GARANTÍA: Si AD tiene información en Notas, pero el sistema no pudo separar qué es fecha y PC, TE MOSTRARÁ EL TEXTO CRUDO SI O SI.
+                logCardHtml = `
+                    <div class="equipos-card" style="background: var(--bg-panel); flex-direction: column; border-left-color: #f59e0b; margin-top: 0; margin-bottom: 20px;">
+                        <div style="width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                            <h3 style="color: #f59e0b; margin:0; font-size: 1.3rem;"><i class="fa-solid fa-note-sticky"></i> Notas en Active Directory</h3>
+                            <span style="background: rgba(245,158,11,0.1); border: 1px solid #f59e0b; padding: 6px 12px; border-radius: 6px; color: #f59e0b; font-weight: bold; font-size: 0.9rem;">
+                                Texto Original Detectado
+                            </span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border-left: 3px solid #f59e0b;">
+                            <span style="color: #fff; font-family: monospace; font-size: 1.05rem; word-break: break-word; white-space: pre-wrap;">${data['Notas AD (Directo)']}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // TERMINAL DE DIAGNÓSTICO ESTÁTICA
+            let diagnosticHtml = '';
+            let logs = (data.AD_Diagnostic && data.AD_Diagnostic.length > 0) ? data.AD_Diagnostic : ["Aviso: No se registraron eventos de diagnóstico."];
+            
+            let listItems = logs.map(msg => {
+                let color = 'var(--text-muted)';
+                if(msg.includes('Éxito')) color = 'var(--accent-green)';
+                if(msg.includes('Error')) color = 'var(--accent-red)';
+                if(msg.includes('Aviso')) color = '#f59e0b';
+                return `<li style="margin-bottom:4px; color: ${color};">> ${msg}</li>`;
+            }).join('');
+            
+            diagnosticHtml = `
+                <div style="margin-bottom: 20px; padding: 15px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; font-family: monospace; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 8px;">
+                        <i class="fa-solid fa-terminal" style="color: #8b5cf6;"></i>
+                        <h4 style="color: #cbd5e1; font-size: 0.85rem; text-transform: uppercase; margin: 0;">Terminal de Eventos AD</h4>
+                    </div>
+                    <ul style="font-size: 0.85rem; list-style: none; padding-left: 5px; margin: 0; word-break: break-word;">
+                        ${listItems}
+                    </ul>
                 </div>
-                <div class="equipos-card" style="background: var(--bg-panel);">
-                    <div style="width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <h3 style="color: var(--accent-cyan); margin:0;"><i class="fa-solid fa-user-lock"></i> Perfil de Dominio</h3>
-                        <span style="background: rgba(6,182,212,0.1); padding: 4px 10px; border-radius: 4px; color: var(--accent-cyan); font-weight: bold; font-size: 1.1rem;">Usuario: ${data.Username}</span>
+            `;
+
+            container.innerHTML = `
+                ${diagnosticHtml}
+                ${logCardHtml}
+                <div class="equipos-card" style="background: var(--bg-panel); flex-direction: column; margin-top: 0; border-left-color: #8b5cf6;">
+                    <div style="width: 100%; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <h3 style="color: #8b5cf6; margin:0; font-size: 1.3rem;"><i class="fa-solid fa-user-lock"></i> Perfil de Dominio</h3>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="background: rgba(139, 92, 246, 0.1); padding: 6px 12px; border-radius: 6px; color: #8b5cf6; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-solid fa-user"></i> ${data.Username}
+                            </span>
+                            <button onclick="copyToClipboard('${data.Username}')" class="icon-btn" style="border: 1px solid #8b5cf6; background: rgba(139, 92, 246, 0.1); color: #8b5cf6; width: 34px; height: 34px; margin: 0;" title="Copiar Usuario"><i class="fa-regular fa-copy"></i></button>
+                        </div>
                     </div>
                     ${itemsHtml}
                 </div>
@@ -1105,15 +1259,8 @@
             if (!baseEquipos || baseEquipos.length === 0) return null;
             
             return baseEquipos.find(eq => {
-                // 1. Búsqueda principal por columnas clave (BOX, WS, NRO)
                 const box = eq['BOX'] ? String(eq['BOX']).trim().toLowerCase() : '';
-                const ws = eq['WS'] ? String(eq['WS']).trim().toLowerCase() : '';
-                const nro = eq['NRO'] ? String(eq['NRO']).trim().toLowerCase() : '';
-                
-                if (box === query || ws === query || nro === query) return true;
-                
-                // 2. Fallback: Si el usuario busca "1244" y está guardado en cualquier otra columna
-                return Object.values(eq).some(val => String(val).trim().toLowerCase() === query);
+                return box === query;
             });
         }
 
@@ -1146,7 +1293,7 @@
                         </div>
                     </div>
                     ${makeItem('WS', 'WS')}
-                    <div class="equipos-card-item"><span class="equipos-card-label">Ubicación (Hoja)</span><span class="equipos-card-value" style="color: var(--accent-cyan); font-weight: bold;">${equipo['_SHEET'] || '-'}</span></div>
+                    <div class="equipos-card-item"><span class="equipos-card-label">Hoja DB</span><span class="equipos-card-value" style="color: var(--text-muted);">${equipo['_SHEET'] || '-'}</span></div>
                     ${makeItem('Responsable', 'RESPONSABLE')}
                     ${makeItem('CPU', 'CPU')}
                     ${makeItem('RAM 16GB', 'RAM 16GB')}
@@ -1158,6 +1305,40 @@
                 </div>
             `;
         }
+
+        window.createNewEquipmentRecord = (boxQuery) => {
+            const infoContainer = document.getElementById('equiposInfoContainer');
+            const sheetSelect = document.getElementById('newRecordSheet');
+            if (!infoContainer || !equiposWorkbook || !sheetSelect) return;
+
+            let targetSheetName = sheetSelect.value;
+            let worksheet = equiposWorkbook.getWorksheet(targetSheetName);
+            if (!worksheet) return;
+
+            let nextRow = worksheet.rowCount + 1;
+            
+            // Evitar superposiciones buscando la siguiente fila completamente vacía
+            while (worksheet.getRow(nextRow).hasValues) {
+                nextRow++;
+            }
+
+            let newEquipo = {
+                'BOX': boxQuery.toUpperCase(),
+                '_SHEET': targetSheetName,
+                '_ROW': nextRow
+            };
+
+            // Inicializar internamente las columnas vacías basándonos en la estructura del Excel
+            if (equiposHeadersMap[targetSheetName]) {
+                Object.keys(equiposHeadersMap[targetSheetName]).forEach(h => { if (h !== 'BOX') newEquipo[h] = ''; });
+            }
+
+            baseEquipos.push(newEquipo); // Asignación en memoria
+            
+            let msgHtml = `<div style="padding: 10px; color: var(--accent-cyan); margin-bottom: 15px; border: 1px solid var(--accent-cyan); border-radius: 8px; background: rgba(6, 182, 212, 0.1); display:flex; align-items:center; gap:10px;"><i class="fa-solid fa-info-circle" style="font-size:1.5rem;"></i> <div><b>Modo de Creación:</b> Se ha generado la tarjeta para la <b>BOX ${boxQuery.toUpperCase()}</b>. Llena los datos y presiona "Guardar Cambios" para añadirla al final de la planilla de inventario.</div></div>`;
+            
+            infoContainer.innerHTML = msgHtml + generateEquipmentCardHTML(newEquipo);
+        };
 
         // --- FUNCIONES DE EDICIÓN Y EXPORTACIÓN DE INVENTARIO ---
         window.saveEquipoChanges = async () => {
@@ -1190,10 +1371,16 @@
                 const value = rawValue.replace(/[\n\r]+/g, '').replace(/\u00A0/g, ' ').trim(); 
                 const oldValue = String(currentEquipoObj[key] || '').trim();
                 
-                // Solo actualizar si el valor realmente cambió
-                if (key && oldValue !== value) { 
+                let excelVal = '';
+                if (headersMap && headersMap[key] !== undefined) {
+                    const c = row.getCell(headersMap[key]);
+                    excelVal = c.value !== null && c.value !== undefined ? String(c.value.result || c.value).trim() : '';
+                }
+
+                // Actualizar si el valor en la UI cambió respecto a memoria, o si el Excel está desactualizado (ej: fila recién creada)
+                if (key && (oldValue !== value || (value !== '' && excelVal !== value))) { 
                     cambiosDetectados++;
-                    console.log(`[Validación] Detectado cambio en [${key}]: '${oldValue}' -> '${value}'`);
+                    console.log(`[Validación] Detectado cambio en [${key}]: '${oldValue}' -> '${value}' (Excel: '${excelVal}')`);
                     currentEquipoObj[key] = value; // Memoria web
                     
                     if (headersMap && headersMap[key] !== undefined) {
@@ -1412,9 +1599,44 @@
                 else if (query.length > 2) performSearch(query);
             });
             
-            btnConsultarAD.addEventListener('click', () => {
-                const username = searchInput.value.trim();
-                window.consultarAD(username);
+            // --- EVENTO DEL NUEVO MENÚ DE AD (PÚRPURA) ---
+            btnADSearch.addEventListener('click', () => {
+                document.querySelectorAll('.sidebar-nav li').forEach(l => l.classList.remove('active'));
+                currentClientObj = null;
+                
+                breadcrumbs.textContent = '> Búsqueda Usuarios (AD)';
+                
+                contentArea.innerHTML = `
+                    <div class="content-header">
+                        <div class="header-title">
+                            <h1><i class="fa-solid fa-users-viewfinder" style="color: #8b5cf6;"></i> Búsqueda en Active Directory</h1>
+                            <small style="color: var(--text-muted);">Consulta de estado, perfil y último logueo en tiempo real.</small>
+                        </div>
+                    </div>
+                    
+                    <div class="map-controls" style="border-left: 4px solid #8b5cf6;">
+                        <div style="display:flex; align-items:center; gap:15px; width: 100%; flex-wrap: wrap;">
+                            <label style="font-weight:bold; color:var(--text-main);">Usuario Dominio:</label>
+                            <div class="search-container" style="margin:0; flex-grow: 1; max-width: 400px;">
+                                <i class="fa-solid fa-user search-icon" style="color: #8b5cf6;"></i>
+                                <input type="text" id="adSearchInput" placeholder="Ej: ecostilla..." class="cyber-search" style="width: 100%; padding: 10px 15px 10px 35px; border-color: rgba(139, 92, 246, 0.5);">
+                            </div>
+                            <button id="btnEjecutarAD" class="btn-action" style="background: #8b5cf6; color: #fff; border:none; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);"><i class="fa-solid fa-magnifying-glass"></i> Consultar Usuario</button>
+                        </div>
+                    </div>
+
+                    <div id="adResultContainer">
+                        <div class="giant-text-container" style="color: rgba(255,255,255,0.02); font-size: 1rem; flex-direction: column;">
+                            <i class="fa-solid fa-address-card" style="font-size: 10rem; margin-bottom: 20px;"></i>
+                            <p>Ingresa un usuario y presiona Consultar</p>
+                        </div>
+                    </div>
+                `;
+
+                document.getElementById('btnEjecutarAD').addEventListener('click', () => { window.consultarAD(document.getElementById('adSearchInput').value.trim()); });
+                document.getElementById('adSearchInput').addEventListener('keypress', (e) => { 
+                    if(e.key === 'Enter') window.consultarAD(document.getElementById('adSearchInput').value.trim()); 
+                });
             });
 
             // --- EVENTO DE MAPAS (PLANOS) ---
@@ -2638,7 +2860,31 @@
                     if (equipo) {
                         infoContainer.innerHTML = generateEquipmentCardHTML(equipo);
                     } else {
-                        infoContainer.innerHTML = `<div style="padding: 10px; color: var(--accent-red); margin-bottom: 15px; border: 1px dashed var(--accent-red); border-radius: 8px; background: rgba(239, 68, 68, 0.05);"><i class="fa-solid fa-triangle-exclamation"></i> No se encontró el equipo "<b>${query}</b>" en la base de datos de inventario cargada.</div>`;
+                        let html = `
+                            <div style="padding: 15px; color: var(--accent-red); margin-bottom: 15px; border: 1px dashed var(--accent-red); border-radius: 8px; background: rgba(239, 68, 68, 0.05); display: flex; flex-direction: column; gap: 10px;">
+                                <div><i class="fa-solid fa-triangle-exclamation"></i> No se encontró el equipo "<b>${query.toUpperCase()}</b>" en la base de datos de inventario cargada.</div>
+                        `;
+                        
+                        const isEditor = currentUser && (currentUser.role === 'admin' || currentUser.role === 'editor');
+                        if (isEditor) {
+                            let sheetOptions = '';
+                            equiposWorkbook.eachSheet(ws => {
+                                sheetOptions += `<option value="${ws.name}">${ws.name}</option>`;
+                            });
+
+                            html += `
+                                <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                                    <select id="newRecordSheet" class="cyber-select" style="width: auto; padding: 8px; margin: 0;" title="Elegir hoja de destino">
+                                        ${sheetOptions}
+                                    </select>
+                                    <button onclick="createNewEquipmentRecord('${query.toUpperCase()}')" class="btn-action" style="background: rgba(6, 182, 212, 0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 8px 16px; font-size: 0.9rem;">
+                                        <i class="fa-solid fa-plus"></i> Añadir a BdD
+                                    </button>
+                                </div>`;
+                        }
+                        
+                        html += `</div>`;
+                        infoContainer.innerHTML = html;
                     }
                 }
             }
@@ -2655,17 +2901,24 @@
 
             let foundSheet = null;
 
+            const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            const regexWord = new RegExp(`\\b${escapedQuery}\\b`, 'i');
+
             // Buscar en todas las hojas con ExcelJS
             mapaWorkbook.eachSheet((ws) => {
                 if (foundSheet) return;
                 ws.eachRow((row) => {
+                    if (foundSheet) return;
                     row.eachCell((cell) => {
+                        if (foundSheet) return;
+                        
                         // Convertir valor a string de forma segura (puede ser objeto rich text)
                         let val = '';
                         if (cell.value && typeof cell.value === 'object' && cell.value.result) val = cell.value.result.toString();
                         else if (cell.value) val = cell.value.toString();
                         
-                        if (val.toLowerCase().includes(query)) {
+                        val = val.trim().toLowerCase();
+                        if (val === query || regexWord.test(val)) {
                             foundSheet = ws.name;
                         }
                     });
@@ -2683,7 +2936,8 @@
                 // Buscar visualmente
                 let domFound = false;
                 document.querySelectorAll('.map-table td').forEach(td => {
-                    if (td.innerText.toLowerCase().includes(query) && td.innerText.trim() !== "") {
+                    const text = td.innerText.trim().toLowerCase();
+                    if (text !== "" && (text === query || regexWord.test(text))) {
                         td.classList.add('map-pc-resaltada');
                         td.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
                         domFound = true;
