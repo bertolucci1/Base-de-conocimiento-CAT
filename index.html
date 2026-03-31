@@ -1039,6 +1039,9 @@
                 <button id="btnTestEmail" class="btn-action btn-secondary" style="background: rgba(245, 158, 11, 0.1); border-color: #f59e0b; color: #f59e0b; padding: 8px 15px;" title="Enviar correo de prueba" onclick="window.testTicketeraSelf()">
                     <i class="fa-solid fa-paper-plane"></i> <span class="btn-text">Test ticketera</span>
                 </button>
+                <button id="btnNotas" class="btn-action btn-secondary" style="background: rgba(99, 102, 241, 0.1); border-color: #6366f1; color: #6366f1; padding: 8px 15px;" title="Abrir notas" onclick="window.openNotesApp()">
+                    <i class="fa-solid fa-sticky-note"></i> <span class="btn-text">Notas</span>
+                </button>
                 <div style="position:relative;">
                     <i class="fa-solid fa-magnifying-glass search-icon"></i>
                     <input type="search" id="searchInput" placeholder="Buscar..." class="cyber-search">
@@ -1297,9 +1300,308 @@
         }
 
         // --- INICIALIZACIÓN ---
+        // ============================================
+        // NOTAS APP - APLICACIÓN PROFESIONAL DE NOTAS
+        // ============================================
+        let notesDB = {
+            notes: []
+        };
+        let currentNoteColor = '#1f2937';
+        const NOTES_BIN_ID = 'notes_' + (window.currentUser || 'default');
+
+        // Cargar notas del almacenamiento local
+        async function loadNotes() {
+            try {
+                const stored = localStorage.getItem('notesDB_' + NOTES_BIN_ID);
+                if (stored) {
+                    notesDB = JSON.parse(stored);
+                } else {
+                    notesDB = { notes: [] };
+                }
+            } catch (e) {
+                console.error('Error cargando notas:', e);
+                notesDB = { notes: [] };
+            }
+        }
+
+        // Guardar notas en almacenamiento (SOLO local, sin stressar JSONBin)
+        let notesSaveTimeout = null;
+        async function saveNotes() {
+            try {
+                // Guardar SIEMPRE en localStorage (instantáneo)
+                localStorage.setItem('notesDB_' + NOTES_BIN_ID, JSON.stringify(notesDB));
+                
+                // NO sincronizar con JSONBin automáticamente para evitar sobrecarga
+                // Si necesitas sincronización en el futuro, implementar:
+                // - Debounce de 5+ segundos
+                // - Rate limiting
+                // - Solo cuando el usuario cierre sesión
+            } catch (e) {
+                console.error('Error guardando notas:', e);
+            }
+        }
+
+        // Abrir app de notas
+        window.openNotesApp = async () => {
+            await loadNotes();
+            renderNotesPage();
+            changeVantaNetColor(0x6366f1);
+            closeMobileSidebar();
+        };
+
+        // Renderizar página completa de notas
+        function renderNotesPage() {
+            breadcrumbs.textContent = '> Bloc de Notas';
+            contentArea.innerHTML = `
+                <div class="notes-page-wrapper">
+                    <div class="notes-page-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+                        <div class="notes-page-title-section">
+                            <h1><i class="fa-solid fa-sticky-note"></i> Mis Notas</h1>
+                            <p class="notes-subtitle">Crea y organiza tus notas de forma simple y profesional</p>
+                        </div>
+                        <div class="search-container" style="margin: 0; flex-grow: 1; max-width: 300px;">
+                            <i class="fa-solid fa-magnifying-glass search-icon" style="color: var(--accent-cyan);"></i>
+                            <input type="search" id="notesSearchInput" placeholder="Buscar notas..." class="cyber-search" style="border-color: rgba(6, 182, 212, 0.5); width: 100%;" oninput="window.filterNotes(this.value)">
+                        </div>
+                    </div>
+
+                    <div class="notes-page-content">
+                        <div class="notes-create-section">
+                            <h3>Nueva Nota</h3>
+                            <div class="notes-form">
+                                <input type="text" id="noteTitle" placeholder="Título..." class="notes-form-input notes-title-input">
+                                <textarea id="noteContent" placeholder="Escribe tu nota..." class="notes-form-textarea"></textarea>
+                                <div class="notes-form-footer">
+                                    <button onclick="window.createNote()" class="notes-btn-primary">
+                                        <i class="fa-solid fa-plus"></i> Crear Nota
+                                    </button>
+                                    <div class="notes-color-picker">
+                                        <button onclick="window.setNoteColor('#1f2937')" class="color-dot" style="background: #1f2937;" title="Gris"></button>
+                                        <button onclick="window.setNoteColor('#3b82f6')" class="color-dot" style="background: #3b82f6;" title="Azul"></button>
+                                        <button onclick="window.setNoteColor('#10b981')" class="color-dot" style="background: #10b981;" title="Verde"></button>
+                                        <button onclick="window.setNoteColor('#f59e0b')" class="color-dot" style="background: #f59e0b;" title="Ámbar"></button>
+                                        <button onclick="window.setNoteColor('#ef4444')" class="color-dot" style="background: #ef4444;" title="Rojo"></button>
+                                        <button onclick="window.setNoteColor('#8b5cf6')" class="color-dot" style="background: #8b5cf6;" title="Púrpura"></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="notes-list-section">
+                            <h3>Todas las Notas</h3>
+                            <div class="notes-list" id="notesListContainer">
+                                <!-- Las notas se renderizarán aquí -->
+                            </div>
+                        </div>
+                    </div>
+                
+                <!-- VISTA DE NOTA EXPANDIDA -->
+                <div id="noteExpandedBackdrop" class="note-expanded-backdrop" onclick="window.closeExpandedNote()"></div>
+                <div id="noteExpandedContainer" class="note-expanded">
+                    <div style="display:flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                        <input type="text" id="expandedNoteTitle" class="note-expanded-title" placeholder="Título de la nota">
+                        <button onclick="window.closeExpandedNote()" class="icon-btn" style="border:none; font-size:1.5rem; margin-top:-5px; margin-right:-10px; cursor: pointer; color:var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <textarea id="expandedNoteContent" class="note-expanded-content" placeholder="Escribe aquí el contenido de tu nota..."></textarea>
+                    <div class="note-expanded-footer">
+                        <div class="notes-color-picker" id="expandedNoteColors"></div>
+                        <div style="display:flex; align-items:center; gap:15px;">
+                            <span id="expandedNoteDate" style="color:var(--text-muted); font-size:0.85rem;"></span>
+                            <button onclick="window.closeExpandedNote()" class="notes-btn-primary" style="padding: 8px 20px;"><i class="fa-solid fa-check"></i> Listo</button>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            `;
+            renderNotesList();
+            document.getElementById('noteTitle').focus();
+        }
+
+        // Renderizar lista de notas
+        function renderNotesList(filterQuery = '') {
+            const container = document.getElementById('notesListContainer');
+            
+            const lowerQuery = filterQuery.toLowerCase();
+            const filteredNotes = notesDB.notes.filter(n => 
+                n.title.toLowerCase().includes(lowerQuery) || 
+                n.content.toLowerCase().includes(lowerQuery)
+            );
+
+            if (filteredNotes.length === 0) {
+                container.innerHTML = `
+                    <div class="notes-empty-state">
+                        <i class="fa-regular fa-lightbulb"></i>
+                        <p>${filterQuery ? 'No se encontraron notas' : 'No hay notas aún'}</p>
+                        <span>${filterQuery ? 'Prueba con otra búsqueda' : 'Crea tu primera nota en el formulario de arriba'}</span>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filteredNotes.map(note => `
+                <div class="note-item" style="cursor: pointer; border-left: 4px solid ${note.color}; background: rgba(${hexToRgb(note.color).join(',')}, 0.05);" onclick="window.expandNote(${note.id})">
+                    <div class="note-item-header">
+                        <h4 style="color: ${note.color};">${escapeHtml(note.title)}</h4>
+                        <span class="note-date">${note.updatedAt}</span>
+                    </div>
+                    <p class="note-item-content">${escapeHtml(note.content).replace(/\n/g, '<br>')}</p>
+                    <div class="note-item-actions">
+                        <button onclick="event.stopPropagation(); window.deleteNote(${note.id})" class="note-item-btn note-item-btn-delete" style="flex:none; width: 100%;">
+                            <i class="fa-solid fa-trash"></i> Eliminar Nota
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Función global para filtrar desde el input
+        window.filterNotes = (query) => {
+            renderNotesList(query);
+        };
+
+        // Establecer color de nota
+        window.setNoteColor = (color) => {
+            currentNoteColor = color;
+            document.querySelectorAll('.notes-color-picker .color-dot').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            if (event.target.classList.contains('color-dot')) {
+                event.target.classList.add('active');
+            }
+        };
+
+        // Crear nueva nota
+        window.createNote = () => {
+            const title = document.getElementById('noteTitle').value.trim();
+            const content = document.getElementById('noteContent').value.trim();
+
+            if (!title && !content) {
+                showToast('Escribe algo en la nota', 'warning');
+                return;
+            }
+
+            const note = {
+                id: Date.now(),
+                title: title || 'Sin título',
+                content: content || '',
+                color: currentNoteColor,
+                createdAt: new Date().toLocaleString('es-ES'),
+                updatedAt: new Date().toLocaleString('es-ES')
+            };
+
+            notesDB.notes.unshift(note);
+            saveNotes();
+            
+            document.getElementById('noteTitle').value = '';
+            document.getElementById('noteContent').value = '';
+            const searchInput = document.getElementById('notesSearchInput');
+            if (searchInput) searchInput.value = ''; // Limpiar búsqueda al crear
+
+            currentNoteColor = '#1f2937';
+            document.querySelectorAll('.color-dot').forEach(btn => btn.classList.remove('active'));
+            
+            renderNotesList();
+            showToast('¡Nota creada! ✓', 'success');
+        };
+
+        // Expandir nota para editarla (Editor in-place)
+        let currentExpandedNoteId = null;
+
+        window.expandNote = (id) => {
+            const note = notesDB.notes.find(n => n.id === id);
+            if (!note) return;
+
+            currentExpandedNoteId = id;
+            document.getElementById('expandedNoteTitle').value = note.title;
+            document.getElementById('expandedNoteContent').value = note.content;
+            document.getElementById('expandedNoteDate').textContent = 'Últ. edición: ' + note.updatedAt;
+            
+            const container = document.getElementById('noteExpandedContainer');
+            container.style.borderLeftColor = note.color;
+            container.style.boxShadow = `0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(${hexToRgb(note.color).join(',')}, 0.2)`;
+            
+            const colors = ['#1f2937', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+            document.getElementById('expandedNoteColors').innerHTML = colors.map(c => `
+                <button onclick="window.setExpandedNoteColor('${c}', this)" class="color-dot ${c === note.color ? 'active' : ''}" style="background: ${c};" title="${c}"></button>
+            `).join('');
+
+            document.getElementById('noteExpandedBackdrop').classList.add('active');
+            document.getElementById('noteExpandedContainer').classList.add('active');
+            
+            setTimeout(() => document.getElementById('expandedNoteContent').focus(), 300);
+        };
+
+        window.setExpandedNoteColor = (color, btnElement) => {
+            if(!currentExpandedNoteId) return;
+            const note = notesDB.notes.find(n => n.id === currentExpandedNoteId);
+            if(note) {
+                note.color = color;
+                const container = document.getElementById('noteExpandedContainer');
+                container.style.borderLeftColor = color;
+                container.style.boxShadow = `0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 30px rgba(${hexToRgb(color).join(',')}, 0.2)`;
+                
+                document.querySelectorAll('#expandedNoteColors .color-dot').forEach(btn => btn.classList.remove('active'));
+                btnElement.classList.add('active');
+                
+                saveNotes(); // Guardar color inmediatamente
+                renderNotesList(); // Refrescar la cuadrícula de fondo
+            }
+        };
+
+        window.closeExpandedNote = () => {
+            if(!currentExpandedNoteId) return;
+            const note = notesDB.notes.find(n => n.id === currentExpandedNoteId);
+            if(note) {
+                const newTitle = document.getElementById('expandedNoteTitle').value.trim();
+                const newContent = document.getElementById('expandedNoteContent').value.trim();
+                
+                let changed = false;
+                if(note.title !== newTitle || note.content !== newContent) {
+                    note.title = newTitle || 'Sin título';
+                    note.content = newContent;
+                    note.updatedAt = new Date().toLocaleString('es-ES');
+                    changed = true;
+                }
+                
+                if(changed) saveNotes();
+                renderNotesList();
+            }
+            
+            currentExpandedNoteId = null;
+            document.getElementById('noteExpandedBackdrop').classList.remove('active');
+            document.getElementById('noteExpandedContainer').classList.remove('active');
+        };
+
+        // Eliminar nota
+        window.deleteNote = (noteId) => {
+            if (!confirm('¿Eliminar esta nota?')) return;
+
+            notesDB.notes = notesDB.notes.filter(n => n.id !== noteId);
+            saveNotes();
+            renderNotesList();
+            showToast('Nota eliminada ✓', 'info');
+        };
+
+        // Funciones auxiliares
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? [
+                parseInt(result[1], 16),
+                parseInt(result[2], 16),
+                parseInt(result[3], 16)
+            ] : [31, 41, 55];
+        }
+
         function initialize() {
             setupLightbox();
             loadFromCloud(); // Volvemos a conectar con la nube para leer los datos reales
+            loadNotes(); // Cargar notas al iniciar
             setupEventListeners();
         }
 
@@ -2392,7 +2694,7 @@ Indícame si luego de realizar el paso a paso al pie de la letra te permite logu
             
             try {
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000); // Timeout de 8 segundos
+                const timeoutId = setTimeout(() => controller.abort(), 15000); // Timeout de 15 segundos (aumentado)
 
                 const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
                     headers: { 'X-Master-Key': API_KEY },
@@ -2448,6 +2750,14 @@ Indícame si luego de realizar el paso a paso al pie de la letra te permite logu
 
         // --- EVENT LISTENERS ---
         function setupEventListeners() {
+            // Atajo de teclado: Ctrl+N abre notas
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+                    e.preventDefault();
+                    window.openNotesApp();
+                }
+            });
+
             const logoutBtn = document.getElementById('logoutBtn');
             btnCampanas.addEventListener('click', () => {
                 currentClientObj = null;
@@ -3932,36 +4242,60 @@ Indícame si luego de realizar el paso a paso al pie de la letra te permite logu
             });
         };
 
+        // Control de rate limiting para saveToCloud
+        let cloudSaveTimeout = null;
+        let isCloudSaving = false;
+
         async function saveToCloud() {
-            const btn = document.querySelector('.btn-save-file');
-            const originalText = btn.textContent;
-            btn.textContent = "Guardando...";
-            btn.disabled = true;
+            // Evitar múltiples llamadas simultáneas
+            if (isCloudSaving) return;
 
-            try {
-                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Master-Key': API_KEY
-                    },
-                    body: JSON.stringify(db)
-                });
+            // Debounce: esperar 2 segundos antes de guardar
+            clearTimeout(cloudSaveTimeout);
+            cloudSaveTimeout = setTimeout(async () => {
+                const btn = document.querySelector('.btn-save-file');
+                if (!btn) return; // Si no está en pantalla, no hacer nada
+                
+                const originalText = btn.textContent;
+                btn.textContent = "Guardando...";
+                btn.disabled = true;
+                isCloudSaving = true;
 
-                if (response.ok) {
-                    showToast("¡Base de datos actualizada en la nube correctamente!", "success");
-                } else if (response.status === 403) {
-                    throw new Error("Acceso denegado (403). La API_KEY no tiene permisos o el BIN_ID es anónimo y de solo lectura.");
-                } else {
-                    throw new Error(`Error del servidor al guardar (${response.status})`);
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 segundos
+
+                    const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Master-Key': API_KEY
+                        },
+                        body: JSON.stringify(db),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeoutId);
+
+                    if (response.ok) {
+                        showToast("¡Base de datos actualizada en la nube correctamente!", "success");
+                    } else if (response.status === 403) {
+                        throw new Error("Acceso denegado (403). La API_KEY no tiene permisos o el BIN_ID es anónimo y de solo lectura.");
+                    } else {
+                        throw new Error(`Error del servidor al guardar (${response.status})`);
+                    }
+                } catch (error) {
+                    console.error('Error en saveToCloud:', error);
+                    if (error.name !== 'AbortError') {
+                        showToast("⚠️ No se pudo guardar. Intente manualmente.", "warning");
+                    }
+                } finally {
+                    if (btn) {
+                        btn.textContent = originalText;
+                        btn.disabled = false;
+                    }
+                    isCloudSaving = false;
                 }
-            } catch (error) {
-                console.error(error);
-                showToast(error.message, "error");
-            } finally {
-                btn.textContent = originalText;
-                btn.disabled = false;
-            }
+            }, 2000); // Esperar 2 segundos antes de guardar
         }
 
         // --- FUNCIONES DE MAPAS (HOISTED) ---
@@ -4511,5 +4845,362 @@ Indícame si luego de realizar el paso a paso al pie de la letra te permite logu
         initialize();
     });
     </script>
+
+    <!-- NOTAS STYLES (Minimalista y Profesional) -->
+    <style>
+        /* Página de notas */
+        .notes-page-wrapper {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0;
+        }
+
+        .notes-page-header {
+            padding: 30px 0 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 30px;
+        }
+
+        .notes-page-title-section h1 {
+            margin: 0 0 8px 0;
+            font-size: 2rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .notes-page-title-section h1 i {
+            color: var(--accent-cyan);
+        }
+
+        .notes-subtitle {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .notes-page-content {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 30px;
+            align-items: start;
+        }
+
+        .notes-create-section,
+        .notes-list-section {
+            padding: 0;
+        }
+
+        .notes-create-section h3,
+        .notes-list-section h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        /* Formulario de notas */
+        .notes-form {
+            background: rgba(26, 34, 50, 0.8); /* Fondo semitransparente de tu bg-panel */
+            backdrop-filter: blur(5px); /* Efecto de desenfoque */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .notes-form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            color: var(--text-main);
+            background: var(--bg-dark); /* Fondo oscuro para los inputs */
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+
+        .notes-form-input:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+        }
+
+        .notes-form-input::placeholder {
+            color: #9ca3af;
+        }
+
+        .notes-title-input {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+
+        .notes-form-textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-size: 0.95rem;
+            font-family: inherit;
+            color: var(--text-main);
+            background: var(--bg-dark); /* Fondo oscuro para los textareas */
+            resize: vertical;
+            min-height: 100px;
+            line-height: 1.5;
+            transition: all 0.3s ease;
+            margin-bottom: 12px;
+        }
+        
+        .notes-form-textarea:focus {
+            outline: none;
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
+        }
+
+        .notes-form-textarea::placeholder {
+            color: #9ca3af;
+        }
+
+        .notes-form-footer {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .notes-btn-primary {
+            background: var(--accent-cyan);
+            color: #fff;
+            border: none;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .notes-btn-primary:hover {
+            background: #0284c7; /* Un cian ligeramente más oscuro */
+            box-shadow: 0 4px 12px rgba(6, 182, 212, 0.3);
+        }
+
+        .notes-btn-primary:active {
+            transform: translateY(1px);
+        }
+
+        .notes-color-picker {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .color-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        .color-dot:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .color-dot.active {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--accent-cyan);
+        }
+
+        /* Lista de notas */
+        .notes-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .note-item {
+            background: var(--bg-panel); /* Fondo oscuro para las tarjetas de notas */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            transition: all 0.3s ease;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+
+        .note-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-color: var(--accent-cyan);
+            transform: translateY(-4px) scale(1.02);
+        }
+
+        .note-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            gap: 10px;
+        }
+
+        .note-item-header h4 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 600;
+            flex: 1;
+            word-break: break-word;
+        }
+
+        .note-date {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .note-item-content {
+            margin: 12px 0;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .note-item-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .note-item-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-panel-light); /* Fondo oscuro para los botones de acción */
+            color: var(--text-main);
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .note-item-btn:hover {
+            background: var(--bg-panel);
+            border-color: var(--accent-cyan);
+        }
+
+        .note-item-btn-edit:hover {
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+        }
+
+        .note-item-btn-delete:hover {
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        
+        /* --- VISTA EXPANDIDA DE NOTA --- */
+        .note-expanded-backdrop {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(8px);
+            z-index: 5999; display: none; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .note-expanded-backdrop.active { display: block; opacity: 1; }
+
+        .note-expanded {
+            position: fixed; top: 50%; left: 50%;
+            transform: translate(-50%, -45%) scale(0.95);
+            width: 90%; max-width: 800px; height: 80vh;
+            background: var(--bg-panel); border-radius: 12px;
+            z-index: 6000; display: none; flex-direction: column;
+            opacity: 0; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            padding: 30px; border-left: 6px solid var(--accent-cyan);
+        }
+        .note-expanded.active { display: flex; opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        
+        .note-expanded-title {
+            font-size: 2rem; font-weight: 700; color: var(--text-main);
+            background: transparent; border: none; outline: none; width: 100%;
+            margin-bottom: 20px; font-family: inherit;
+        }
+        .note-expanded-content {
+            font-size: 1.1rem; color: var(--text-main); line-height: 1.6;
+            background: transparent; border: none; outline: none;
+            width: 100%; flex: 1; resize: none; font-family: inherit;
+        }
+        .note-expanded-content::-webkit-scrollbar { width: 8px; }
+        .note-expanded-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+        
+        .note-expanded-footer {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);
+        }
+
+        .notes-empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        .notes-empty-state i {
+            font-size: 3rem;
+            opacity: 0.3;
+            margin-bottom: 12px;
+        }
+
+        .notes-empty-state p {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .notes-empty-state span {
+            display: block;
+            margin-top: 6px;
+            font-size: 0.9rem;
+            opacity: 0.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .notes-page-header {
+                padding: 20px 0 15px;
+            }
+
+            .notes-page-title-section h1 {
+                font-size: 1.5rem;
+            }
+
+            .notes-page-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .notes-form {
+                position: sticky;
+                top: 0;
+                z-index: 10;
+            }
+        }
+    </style>
+
 </body>
 </html>
